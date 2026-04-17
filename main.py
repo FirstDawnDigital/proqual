@@ -283,6 +283,19 @@ def run_sheets_export(db_path: str) -> int:
         return 0
 
 
+def run_turso_sync(db_path: str):
+    """Synkroniser lokal SQLite til Turso (kræver TURSO_URL + TURSO_AUTH_TOKEN i config.env)."""
+    try:
+        from webapp.turso_sync import sync_to_turso
+        result = sync_to_turso(db_path=Path(db_path))
+        if result["ok"]:
+            console.print("[green]✓ Turso synkroniseret[/green]")
+        else:
+            console.print(f"[yellow]Turso-sync: {result['error']}[/yellow]")
+    except Exception as e:
+        logger.warning(f"Turso-sync fejlede: {e}")
+
+
 def run_static_export(db_path: str):
     """Eksportér statisk HTML til docs/index.html (GitHub Pages)."""
     try:
@@ -898,6 +911,7 @@ def cmd_schedule(db_path: str, interval_hours: int = 6):
         try:
             run_salg_scraping(db_path)
             run_sheets_export(db_path)
+            run_turso_sync(db_path)
             run_static_export(db_path)
         except Exception as e:
             logger.error(f"Daglig Boligsiden-job fejlede: {e}")
@@ -930,6 +944,7 @@ def main():
     parser.add_argument('--email-only', action='store_true', help='Kun email-parsing')
     parser.add_argument('--export-sheets', action='store_true', help='Eksporter til Google Sheets')
     parser.add_argument('--export-static', action='store_true', help='Eksportér statisk HTML til docs/index.html (GitHub Pages)')
+    parser.add_argument('--sync-turso', action='store_true', help='Synkroniser lokal SQLite til Turso (kræver TURSO_URL i config.env)')
     parser.add_argument('--days-back', type=int, default=7, help='Antal dage bagud for email-parsing (default: 7)')
     parser.add_argument('--interval-hours', type=int, default=6, help='Timer mellem kørsler ved --schedule (default: 6)')
     parser.add_argument('--analyze-cities', action='store_true', help='Tør-kørsel: vis alle byer parseren ser og hvilke der mangler postnummer')
@@ -983,6 +998,8 @@ def main():
         run_sheets_export(db_path)
     elif args.export_static:
         run_static_export(db_path)
+    elif args.sync_turso:
+        run_turso_sync(db_path)
     elif args.analyze_cities:
         cmd_analyze_cities(days_back=args.days_back)
     elif args.validate_listings:

@@ -8,3 +8,5 @@ google-auth-oauthlib==1.2.0
 python-dotenv==1.0.1
 schedule==1.2.1
 rich==13.7.1
+libsql-experimental>=0.0.20
+gunicorn>=22.0.0

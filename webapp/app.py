@@ -1,9 +1,16 @@
 """
 Ejendomsinvesterings Web App – Flask backend
-Kør: python webapp/app.py
-Åbn: http://<mac-mini-ip>:5050 på telefon over WiFi
+
+Lokal kørsel (Mac Mini):
+  python webapp/app.py
+  Åbn: http://<mac-mini-ip>:5050
+
+Produktion (Render + Turso):
+  Sæt miljøvariable:  TURSO_URL  og  TURSO_AUTH_TOKEN
+  Start:              gunicorn webapp.app:app
 """
 
+import os
 import sqlite3
 import json
 from pathlib import Path
@@ -14,8 +21,28 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH  = BASE_DIR / "data" / "ejendom.db"
 
+# ── Database-forbindelse: lokal SQLite eller Turso ────────────────────────────
+TURSO_URL   = os.environ.get("TURSO_URL", "")
+TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
+USE_TURSO   = bool(TURSO_URL and TURSO_TOKEN)
+
 
 def get_db():
+    """
+    Returnerer en database-forbindelse.
+    • Turso (produktion): hvis TURSO_URL + TURSO_AUTH_TOKEN er sat i miljø
+    • Lokal SQLite (development): standard sqlite3
+    Begge returnerer en conn med row_factory = sqlite3.Row.
+    """
+    if USE_TURSO:
+        try:
+            import libsql_experimental as libsql
+            conn = libsql.connect(TURSO_URL, auth_token=TURSO_TOKEN)
+            conn.row_factory = sqlite3.Row
+            return conn
+        except ImportError:
+            app.logger.warning("libsql_experimental ikke installeret — falder tilbage til SQLite")
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
