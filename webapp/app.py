@@ -27,19 +27,66 @@ TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 USE_TURSO   = bool(TURSO_URL and TURSO_TOKEN)
 
 
+# ── Turso-wrapper (libsql understøtter ikke row_factory) ─────────────────────
+class _Row(dict):
+    """Dict der også understøtter integer-indeksering — samme API som sqlite3.Row."""
+    __slots__ = ("_vals",)
+
+    def __init__(self, cols, vals):
+        super().__init__(zip(cols, vals))
+        object.__setattr__(self, "_vals", list(vals))
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return object.__getattribute__(self, "_vals")[key]
+        return super().__getitem__(key)
+
+
+class _TursoCursor:
+    """Cursor-wrapper der returnerer _Row-objekter i stedet for tupler."""
+    def __init__(self, cur):
+        self._cur = cur
+
+    def fetchall(self):
+        rows = self._cur.fetchall()
+        if not rows:
+            return []
+        cols = [d[0] for d in (self._cur.description or [])]
+        return [_Row(cols, r) for r in rows]
+
+    def fetchone(self):
+        row = self._cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in (self._cur.description or [])]
+        return _Row(cols, row)
+
+
+class _TursoConn:
+    """Forbindelses-wrapper der giver libsql samme sqlite3-kompatible API."""
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, sql, params=()):
+        return _TursoCursor(self._conn.execute(sql, params))
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
+
 def get_db():
     """
     Returnerer en database-forbindelse.
-    • Turso (produktion): hvis TURSO_URL + TURSO_AUTH_TOKEN er sat i miljø
+    • Turso (produktion): TURSO_URL + TURSO_AUTH_TOKEN sat som miljøvariable
     • Lokal SQLite (development): standard sqlite3
-    Begge returnerer en conn med row_factory = sqlite3.Row.
     """
     if USE_TURSO:
         try:
             import libsql_experimental as libsql
-            conn = libsql.connect(TURSO_URL, auth_token=TURSO_TOKEN)
-            conn.row_factory = sqlite3.Row
-            return conn
+            return _TursoConn(libsql.connect(TURSO_URL, auth_token=TURSO_TOKEN))
         except ImportError:
             app.logger.warning("libsql_experimental ikke installeret — falder tilbage til SQLite")
 
