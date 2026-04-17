@@ -1,0 +1,7 @@
+name = "proqual-api"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+[vars]
+# Secrets sættes via: wrangler secret put TURSO_URL osv.
+# Tilføj din worker-URL til CORS_ORIGINS i worker.js efter første deploy

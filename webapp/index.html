@@ -155,6 +155,9 @@
     .leje-cell { position: relative; cursor: pointer; }
     .leje-val  { font-weight: 600; text-decoration: underline dotted var(--muted); }
     .leje-empty { color: #cbd5e1; }
+    /* Manuel leje-override */
+    .leje-override { font-weight: 600; color: #d97706; }
+    .leje-override-icon { font-size: 10px; margin-left: 2px; }
 
     /* ── Afkast ── */
     .yield-high { color: var(--green); font-weight: 700; font-size: 14px; }
@@ -244,6 +247,36 @@
       color: var(--muted); font-size: 13px; margin-bottom: 16px;
     }
     .add-item-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* Leje-override sektion */
+    .leje-section {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; margin-bottom: 14px;
+    }
+    .leje-section-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .leje-section-header label {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .leje-toggle { display: flex; gap: 4px; }
+    .leje-tab-btn {
+      padding: 4px 10px; border-radius: 6px; border: 1.5px solid var(--border);
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      background: var(--bg); color: var(--muted); transition: all .15s;
+    }
+    .leje-tab-btn.active-auto     { border-color: var(--muted); color: var(--text); background: #f1f5f9; }
+    .leje-tab-btn.active-manual   { border-color: #d97706; color: #d97706; background: #fffbeb; }
+    .leje-manual-inputs { display: none; flex-direction: column; gap: 8px; }
+    .leje-manual-inputs.visible { display: flex; }
+    .leje-manual-inputs input {
+      padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; width: 100%;
+    }
+    .leje-manual-inputs input:focus { outline: none; border-color: #d97706; }
+    .leje-system-val { font-size: 13px; color: var(--muted); }
 
     /* Renoveringsopsummering */
     .reno-summary {
@@ -608,9 +641,120 @@
   </div>
 </div>
 
+<!-- Leje-override modal -->
+<div id="leje-modal" class="modal-backdrop">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div>
+        <h2 id="leje-modal-title">Huslejeestimering</h2>
+        <div class="addr-sub" id="leje-modal-addr"></div>
+      </div>
+      <button class="modal-close" id="leje-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- System-estimat info -->
+      <div class="leje-section" id="leje-system-box"></div>
+      <!-- Toggle -->
+      <div class="leje-section-header" style="margin-top:14px">
+        <label>Brug som estimat</label>
+        <div class="leje-toggle">
+          <button class="leje-tab-btn" data-leje-mode="auto">Beregnet</button>
+          <button class="leje-tab-btn" data-leje-mode="manual">Manuel ✏️</button>
+        </div>
+      </div>
+      <!-- Manuel input -->
+      <div class="leje-manual-inputs" id="leje-manual-inputs" style="margin-top:10px">
+        <input type="number" id="leje-custom-input" placeholder="fx 15.350" step="100" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;width:100%">
+        <input type="text"   id="leje-custom-note"  placeholder="Årsag (fx: median 5 rum i 4340 er 15.350 kr)" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;margin-top:6px">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="leje-modal-cancel">Annuller</button>
+      <button class="btn-save"   id="leje-modal-save">Gem</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const HOME_ADDRESS = "Egevangen 19, 2700 København, Danmark";
   const HOME_ENC     = encodeURIComponent(HOME_ADDRESS);
+
+  // ── API-konfiguration ─────────────────────────────────
+  // Worker URL sættes efter Cloudflare deploy — erstat placeholder:
+  const WORKER_URL = "https://proqual-api.proqual.workers.dev";
+  const LS_KEY     = "proqual_api_key";
+
+  function getApiKey() {
+    return localStorage.getItem(LS_KEY) || "";
+  }
+
+  function apiFetch(path, options = {}) {
+    const key = getApiKey();
+    const headers = { ...(options.headers || {}), "X-API-Key": key };
+    return fetch(WORKER_URL + path, { ...options, headers });
+  }
+
+  function showPasswordPrompt(onSuccess) {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(15,23,42,0.92);
+      display:flex;align-items:center;justify-content:center;z-index:9999;
+    `;
+    overlay.innerHTML = `
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;
+                  padding:40px;max-width:360px;width:90%;text-align:center;">
+        <div style="font-size:32px;margin-bottom:12px;">🔐</div>
+        <h2 style="color:#f1f5f9;margin:0 0 8px">Ejendomsoversigt</h2>
+        <p style="color:#94a3b8;font-size:14px;margin:0 0 24px">Indtast adgangskode for at fortsætte</p>
+        <input id="pw-input" type="password" placeholder="Adgangskode"
+          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #475569;
+                 background:#0f172a;color:#f1f5f9;font-size:15px;box-sizing:border-box;
+                 outline:none;margin-bottom:12px;" />
+        <div id="pw-error" style="color:#f87171;font-size:13px;min-height:20px;margin-bottom:8px;"></div>
+        <button id="pw-btn"
+          style="width:100%;padding:11px;background:#3b82f6;color:#fff;border:none;
+                 border-radius:8px;font-size:15px;cursor:pointer;font-weight:600;">
+          Log ind
+        </button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector("#pw-input");
+    const btn   = overlay.querySelector("#pw-btn");
+    const err   = overlay.querySelector("#pw-error");
+    input.focus();
+
+    async function attempt() {
+      const key = input.value.trim();
+      if (!key) return;
+      btn.disabled = true;
+      btn.textContent = "Tjekker…";
+      // Test nøglen mod /api/meta
+      try {
+        const res = await fetch(WORKER_URL + "/api/meta", {
+          headers: { "X-API-Key": key }
+        });
+        if (res.ok) {
+          localStorage.setItem(LS_KEY, key);
+          overlay.remove();
+          onSuccess();
+        } else {
+          err.textContent = "Forkert adgangskode — prøv igen.";
+          input.value = "";
+          input.focus();
+          btn.disabled = false;
+          btn.textContent = "Log ind";
+        }
+      } catch {
+        err.textContent = "Kunne ikke nå serveren — tjek forbindelsen.";
+        btn.disabled = false;
+        btn.textContent = "Log ind";
+      }
+    }
+
+    btn.addEventListener("click", attempt);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") attempt(); });
+  }
 
   // ── State ─────────────────────────────────────────────
   let allData    = [];
@@ -620,9 +764,12 @@
   let statusFilter = "all";  // all | favorite | disqualified
 
   // Modal state
-  let modalPropId   = null;
-  let modalItems    = [];
-  let modalRenoStatus = "none";
+  let modalPropId      = null;
+  let modalItems       = [];
+  let modalRenoStatus  = "none";
+  let modalLejeMode    = "auto";   // "auto" | "manual"
+  let modalCustomLeje  = null;
+  let modalCustomLejeNote = "";
 
   const MIN_N_RELIABLE = 5;
 
@@ -653,7 +800,22 @@
   }
 
   function getAnnotation(id) {
-    return annotations[id] || { status:"neutral", renovation_items:[], renovation_status:"none", notes:"" };
+    return annotations[id] || { status:"neutral", renovation_items:[], renovation_status:"none", notes:"", custom_leje:null, custom_leje_note:"" };
+  }
+
+  // Effektiv månedsleje: bruger manuel override hvis sat, ellers systemets estimat
+  function effectiveLeje(p, ann) {
+    return (ann.custom_leje && ann.custom_leje > 0) ? ann.custom_leje : p.est_leje_sqm;
+  }
+
+  // HTML til lejevisning i tabel/kort
+  function lejeHtml(p, ann) {
+    if (ann.custom_leje && ann.custom_leje > 0) {
+      return `<span class="leje-override">${fmt(ann.custom_leje)}\u00a0kr<span class="leje-override-icon">✏️</span></span>`;
+    }
+    return p.est_leje_sqm != null
+      ? `<span class="leje-val">${fmt(p.est_leje_sqm)}\u00a0kr</span>`
+      : `<span class="leje-empty">–</span>`;
   }
 
   function renoTotal(items) {
@@ -716,8 +878,8 @@
     try {
       // Properties + meta er kritiske
       const [propRes, metaRes] = await Promise.all([
-        fetch("/api/properties"),
-        fetch("/api/meta"),
+        apiFetch("/api/properties"),
+        apiFetch("/api/meta"),
       ]);
       if (!propRes.ok) throw new Error(`/api/properties svarede ${propRes.status}`);
       if (!metaRes.ok) throw new Error(`/api/meta svarede ${metaRes.status}`);
@@ -727,7 +889,7 @@
 
       // Annotations er valgfrit — fejl her blokerer ikke siden
       try {
-        const annRes = await fetch("/api/annotations");
+        const annRes = await apiFetch("/api/annotations");
         if (annRes.ok) annotations = await annRes.json();
       } catch (e) {
         console.warn("Annotations endpoint ikke tilgængeligt:", e);
@@ -758,7 +920,7 @@
     const current = getAnnotation(id);
     const updated = { ...current, ...patch };
     annotations[id] = updated;
-    await fetch(`/api/annotations/${id}`, {
+    await apiFetch(`/api/annotations/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updated),
@@ -880,19 +1042,20 @@
       // Kr/m²
       const sqmHtml = p.sale_kr_per_sqm!=null ? `${fmt(p.sale_kr_per_sqm)}\u00a0kr` : "–";
 
-      // Est. leje
-      const lejeHtml = p.est_leje_sqm!=null
-        ? `<span class="leje-val">${fmt(p.est_leje_sqm)}\u00a0kr</span>`
-        : `<span class="leje-empty">–</span>`;
+      // Est. leje (bruger manuel override hvis sat)
+      const leje = effectiveLeje(p, ann);
+      const _lejeHtml = lejeHtml(p, ann);
 
-      // Afkast — justeret hvis renovering er beregnet
+      // Afkast — bruger effektiv leje + justeret pris ved renovering
       const n    = p.lejedata_antal ?? 0;
-      const thin = p.yield_sqm_pct!=null && n>0 && n<MIN_N_RELIABLE;
-      let yieldPct = p.yield_sqm_pct;
-      if (renoStatus !== "none" && p.est_leje_sqm!=null && adjPrice>0) {
-        yieldPct = Math.round((p.est_leje_sqm*12/adjPrice)*1000)/10;
+      const thin = !ann.custom_leje && p.yield_sqm_pct!=null && n>0 && n<MIN_N_RELIABLE;
+      let yieldPct;
+      if (leje != null && p.price > 0) {
+        yieldPct = Math.round((leje * 12 / adjPrice) * 1000) / 10;
+      } else {
+        yieldPct = p.yield_sqm_pct;
       }
-      const yCls   = yieldClass(yieldPct, n);
+      const yCls   = yieldClass(yieldPct, ann.custom_leje ? 99 : n);
       const yTitle = thin ? `title="Usikkert — kun ${n} lejeannonce${n===1?"":"r"} i ${p.zip_code}"` : "";
       const yTxt   = yieldPct!=null ? (thin ? "~"+yieldPct.toFixed(1)+"%" : yieldPct.toFixed(1)+"%") : "–";
 
@@ -916,7 +1079,7 @@
         <td class="num">${priceHtml}</td>
         <td class="num">${ownerHtml}</td>
         <td class="num">${sqmHtml}</td>
-        <td class="num leje-cell">${lejeHtml}</td>
+        <td class="num leje-cell">${_lejeHtml}</td>
         <td class="num ${yCls}" ${yTitle}>${yTxt}</td>
         <td class="num">${distHtml}</td>
       `;
@@ -927,11 +1090,11 @@
         cycleStatus(p.id);
       });
 
-      // Leje tooltip
+      // Leje: hover = tooltip, klik = override modal
       const lejeCell = tr.querySelector(".leje-cell");
       lejeCell.addEventListener("mouseenter", e => showTooltip(e, p));
       lejeCell.addEventListener("mouseleave", () => tooltip.classList.remove("visible"));
-      lejeCell.addEventListener("click",      e => { e.stopPropagation(); showTooltip(e, p); });
+      lejeCell.addEventListener("click",      e => { e.stopPropagation(); tooltip.classList.remove("visible"); openLejeModal(p); });
 
       // Renoverings-modal åbn
       tr.querySelector("[data-reno-open]").addEventListener("click", e => {
@@ -983,18 +1146,21 @@
                    + `<div class="price-renovated">${fmt(adjPrice)}\u00a0kr</div>`;
       }
 
-      // Afkast
-      const n    = p.lejedata_antal ?? 0;
-      let yieldPct = p.yield_sqm_pct;
-      if (renoStatus !== "none" && p.est_leje_sqm!=null && adjPrice>0) {
-        yieldPct = Math.round((p.est_leje_sqm*12/adjPrice)*1000)/10;
+      // Afkast (bruger effektiv leje)
+      const cardN    = p.lejedata_antal ?? 0;
+      const cardLeje = effectiveLeje(p, ann);
+      let yieldPct;
+      if (cardLeje != null && p.price > 0) {
+        yieldPct = Math.round((cardLeje * 12 / adjPrice) * 1000) / 10;
+      } else {
+        yieldPct = p.yield_sqm_pct;
       }
-      const yCls = yieldClass(yieldPct, n);
-      const thin = yieldPct!=null && n>0 && n<MIN_N_RELIABLE;
+      const yCls = yieldClass(yieldPct, ann.custom_leje ? 99 : cardN);
+      const thin = !ann.custom_leje && yieldPct!=null && cardN>0 && cardN<MIN_N_RELIABLE;
       const yTxt = yieldPct!=null ? (thin?"~"+yieldPct.toFixed(1)+"%":yieldPct.toFixed(1)+"%") : "–";
 
-      // Est. leje
-      const lejeTxt = p.est_leje_sqm!=null ? `<span class="leje-val">${fmt(p.est_leje_sqm)}\u00a0kr</span>` : `<span class="leje-empty">–</span>`;
+      // Est. leje (bruger manuel override hvis sat)
+      const lejeTxt = lejeHtml(p, ann);
 
       // Køretid (kort)
       const kmTxt = fmtDuration(p.commute_minutes);
@@ -1049,7 +1215,7 @@
         e.stopPropagation(); openRenoModal(p);
       });
       const lejeCell = card.querySelector(".leje-cell");
-      if (lejeCell) lejeCell.addEventListener("click", e => { e.stopPropagation(); showTooltip(e, p); });
+      if (lejeCell) lejeCell.addEventListener("click", e => { e.stopPropagation(); openLejeModal(p); });
 
       container.appendChild(card);
     });
@@ -1213,6 +1379,93 @@
     });
   }
 
+  // ── Leje-override modal ───────────────────────────────
+  const lejeModal    = document.getElementById("leje-modal");
+  let _lejeProp      = null;
+
+  function openLejeModal(p) {
+    _lejeProp = p;
+    const ann = getAnnotation(p.id);
+    modalLejeMode       = ann.custom_leje ? "manual" : "auto";
+    modalCustomLeje     = ann.custom_leje || null;
+    modalCustomLejeNote = ann.custom_leje_note || "";
+
+    // Adresse
+    const addrFull  = p.address || "–";
+    const addrMatch = addrFull.match(/^(.+?),\s*(\d{4}\s+.+)$/);
+    document.getElementById("leje-modal-title").textContent = addrMatch ? addrMatch[1] : addrFull;
+    document.getElementById("leje-modal-addr").textContent  = addrMatch ? addrMatch[2] : "";
+
+    // System-estimat boks (samme info som tooltip)
+    const n = p.lejedata_antal ?? 0;
+    const nRum = p.lejedata_rum_antal ?? 0;
+    let box = "";
+    if (p.est_leje_sqm != null) {
+      const warn = n < MIN_N_RELIABLE ? `<div style="color:#d97706;font-size:11px;margin-top:4px">⚠️ Kun ${n} datapunkter — usikkert estimat</div>` : "";
+      box += `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Systemestimering — m²-metode (${p.zip_code})</div>`;
+      box += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>Lav</span><span>${fmtKr(p.est_leje_sqm_low)}</span></div>`;
+      box += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>Median</span><span style="font-weight:700">${fmtKr(p.est_leje_sqm)}</span></div>`;
+      box += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>Høj</span><span>${fmtKr(p.est_leje_sqm_high)}</span></div>`;
+      box += `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:2px 0"><span>Datapunkter</span><span>${n}</span></div>`;
+      box += warn;
+    }
+    if (p.est_leje_rooms != null) {
+      box += `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Rum-metode (${p.rooms ?? "?"}-rums i ${p.zip_code})</div>`;
+      box += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>Lav</span><span>${fmtKr(p.est_leje_rooms_low)}</span></div>`;
+      box += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>Median</span><span style="font-weight:700">${fmtKr(p.est_leje_rooms)}</span></div>`;
+      box += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>Høj</span><span>${fmtKr(p.est_leje_rooms_high)}</span></div>`;
+      box += `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:2px 0"><span>Datapunkter</span><span>${nRum}</span></div>`;
+    }
+    if (!box) box = `<div style="color:var(--muted);font-size:13px">Ingen systemestimering tilgængelig.</div>`;
+    document.getElementById("leje-system-box").innerHTML = box;
+
+    // Inputs
+    document.getElementById("leje-custom-input").value = modalCustomLeje || "";
+    document.getElementById("leje-custom-note").value  = modalCustomLejeNote;
+    updateLejeTabs();
+    lejeModal.classList.add("open");
+  }
+
+  function closeLejeModal() {
+    lejeModal.classList.remove("open");
+    _lejeProp = null;
+  }
+
+  function updateLejeTabs() {
+    document.querySelectorAll("[data-leje-mode]").forEach(btn => {
+      btn.className = "leje-tab-btn" + (btn.dataset.lejeMode===modalLejeMode ? " active-"+modalLejeMode : "");
+    });
+    document.getElementById("leje-manual-inputs").classList.toggle("visible", modalLejeMode === "manual");
+  }
+
+  document.getElementById("leje-modal-close").addEventListener("click",  closeLejeModal);
+  document.getElementById("leje-modal-cancel").addEventListener("click", closeLejeModal);
+  lejeModal.addEventListener("click", e => { if (e.target===lejeModal) closeLejeModal(); });
+
+  document.querySelectorAll("[data-leje-mode]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      modalLejeMode = btn.dataset.lejeMode;
+      if (modalLejeMode === "auto") { modalCustomLeje = null; modalCustomLejeNote = ""; }
+      updateLejeTabs();
+    });
+  });
+  document.getElementById("leje-custom-input").addEventListener("input", e => {
+    modalCustomLeje = parseFloat(e.target.value) || null;
+  });
+  document.getElementById("leje-custom-note").addEventListener("input", e => {
+    modalCustomLejeNote = e.target.value;
+  });
+
+  document.getElementById("leje-modal-save").addEventListener("click", async () => {
+    if (!_lejeProp) return;
+    await saveAnnotation(_lejeProp.id, {
+      custom_leje:      modalLejeMode === "manual" ? modalCustomLeje : null,
+      custom_leje_note: modalLejeMode === "manual" ? modalCustomLejeNote : "",
+    });
+    closeLejeModal();
+    renderTable();
+  });
+
   // Tilføj post
   document.getElementById("add-item-btn").addEventListener("click", () => {
     modalItems.push({ desc:"", cost:"" });
@@ -1239,26 +1492,47 @@
 
   function renderModalSummary() {
     if (!_modalProp) return;
-    const p = _modalProp;
+    const p        = _modalProp;
     const total    = renoTotal(modalItems);
     const adjPrice = p.price + total;
-    const adjYield = p.est_leje_sqm!=null && adjPrice>0
-      ? (p.est_leje_sqm*12/adjPrice*100).toFixed(1) : null;
-    const origYield = p.yield_sqm_pct!=null ? p.yield_sqm_pct.toFixed(1) : "–";
+    // Effektiv leje: manuel > system
+    const leje     = (modalLejeMode === "manual" && modalCustomLeje > 0)
+                     ? modalCustomLeje : p.est_leje_sqm;
+    const adjYield = leje!=null && adjPrice>0
+      ? (leje*12/adjPrice*100).toFixed(1) : null;
+    const origYield = leje!=null && p.price>0
+      ? (leje*12/p.price*100).toFixed(1)
+      : (p.yield_sqm_pct!=null ? p.yield_sqm_pct.toFixed(1) : "–");
+
+    const lejeRow = modalLejeMode === "manual" && modalCustomLeje > 0
+      ? `<div class="reno-summary-row" style="color:#d97706">
+           <span>✏️ Manuel leje</span><span>${fmt(modalCustomLeje)} kr/md</span>
+         </div>`
+      : (p.est_leje_sqm!=null
+          ? `<div class="reno-summary-row" style="color:var(--muted)">
+               <span>Est. leje (system)</span><span>${fmt(p.est_leje_sqm)} kr/md</span>
+             </div>` : "");
 
     renoSummary.innerHTML = `
       <div class="reno-summary-row"><span>Kontantpris</span><span>${fmt(p.price)} kr</span></div>
       ${modalItems.filter(it=>it.cost>0).map(it =>
         `<div class="reno-summary-row" style="color:var(--muted)"><span>+ ${esc(it.desc||"Post")}</span><span>${fmt(it.cost)} kr</span></div>`
       ).join("")}
-      <div class="reno-summary-row total"><span>Justeret pris</span><span>${fmt(adjPrice)} kr</span></div>
-      <div class="reno-summary-row" style="margin-top:6px"><span>Orig. afkast</span><span>${origYield}%</span></div>
-      ${adjYield!=null ? `<div class="reno-summary-row yield-row"><span>Justeret afkast</span><span>${adjYield}%</span></div>` : ""}
+      ${total>0 ? `<div class="reno-summary-row total"><span>Justeret pris</span><span>${fmt(adjPrice)} kr</span></div>` : ""}
+      ${lejeRow}
+      <div class="reno-summary-row total" style="margin-top:6px">
+        <span>${total>0 ? "Justeret afkast" : "Afkast"}</span>
+        <span class="${adjYield!=null && parseFloat(adjYield)>=6 ? "yield-high" : adjYield!=null && parseFloat(adjYield)>=4 ? "yield-mid" : "yield-low"}">${adjYield!=null ? adjYield+"%" : "–"}</span>
+      </div>
     `;
   }
 
   // ── Boot ──────────────────────────────────────────────
-  loadData();
+  if (getApiKey()) {
+    loadData();
+  } else {
+    showPasswordPrompt(loadData);
+  }
 </script>
 </body>
 </html>
