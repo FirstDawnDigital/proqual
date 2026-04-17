@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Huslejekort – Sjælland & København</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',sans-serif; background:#1a1a2e; color:#eee; }
+
+#header {
+  padding:10px 18px 8px;
+  background:#16213e;
+  border-bottom:1px solid #0f3460;
+}
+#header-top {
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:8px;
+}
+#header h1 { font-size:1.1rem; font-weight:600; color:#e2e8f0; }
+#header p  { font-size:0.76rem; color:#94a3b8; margin-top:1px; }
+
+/* ── Knapper ── */
+.btn-group { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.ctrl-btn {
+  padding:5px 13px; border-radius:6px; border:1px solid #334155;
+  background:#0f3460; color:#e2e8f0; cursor:pointer; font-size:0.78rem;
+  transition:all .15s; white-space:nowrap;
+}
+.ctrl-btn.active  { background:#3b82f6; border-color:#3b82f6; }
+.ctrl-btn:hover   { background:#1d4ed8; border-color:#1d4ed8; }
+.ctrl-btn.sub     { padding:4px 10px; font-size:0.73rem;
+                    background:#0c2340; border-color:#253a55; }
+.ctrl-btn.sub.active { background:#0f766e; border-color:#0f766e; }
+.ctrl-btn.sub:hover  { background:#0d9488; border-color:#0d9488; }
+.ctrl-btn.disabled   { opacity:.35; cursor:default; }
+
+/* ── Sub-filter bar ── */
+#sub-filter {
+  margin-top:7px;
+  display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+  padding:6px 10px;
+  background:rgba(15,34,64,.6); border-radius:8px;
+  border:1px solid #1e3a5f;
+}
+#sub-filter.hidden { display:none; }
+.filter-label { font-size:0.72rem; color:#64748b; white-space:nowrap; }
+.filter-sep   { color:#334155; font-size:0.9rem; margin:0 2px; }
+
+/* ── Kort ── */
+#map { width:100%; height:calc(100vh - 120px); }
+
+/* ── Legend ── */
+.legend {
+  background:rgba(22,33,62,.96);
+  padding:11px 14px; border-radius:10px;
+  box-shadow:0 2px 12px rgba(0,0,0,.4);
+  color:#e2e8f0; font-size:0.76rem; min-width:170px;
+  border:1px solid #334155;
+}
+.legend h4 { margin-bottom:7px; font-size:0.8rem; color:#93c5fd; }
+.legend-bar { height:13px; border-radius:4px; margin-bottom:4px; }
+.legend-labels { display:flex; justify-content:space-between; font-size:0.7rem; color:#94a3b8; }
+.legend-size { margin-top:10px; }
+.legend-size-row { display:flex; align-items:center; gap:7px; margin:3px 0; }
+.legend-dot { border-radius:50%; background:#64748b; opacity:.7; flex-shrink:0; }
+
+/* ── Stats bar ── */
+#stats-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  background:rgba(10,18,36,.93);
+  padding:6px 18px; font-size:0.76rem; color:#64748b;
+  border-top:1px solid #1e293b;
+  display:flex; gap:20px; flex-wrap:wrap; z-index:1000;
+}
+#stats-bar span { color:#e2e8f0; }
+#stats-bar .filter-tag {
+  padding:1px 8px; border-radius:4px; background:#0f3460;
+  color:#93c5fd; font-size:0.72rem; margin-left:4px;
+}
+
+/* ── Popup ── */
+.leaflet-popup-content-wrapper {
+  background:#1e293b!important; color:#e2e8f0!important;
+  border:1px solid #334155!important; border-radius:10px!important;
+  box-shadow:0 4px 20px rgba(0,0,0,.5)!important;
+}
+.leaflet-popup-tip { background:#1e293b!important; }
+.popup-zip   { font-size:1.05rem; font-weight:700; color:#93c5fd; margin-bottom:1px; }
+.popup-city  { font-size:0.8rem; color:#94a3b8; margin-bottom:7px; }
+.popup-grid  { display:grid; grid-template-columns:1fr 1fr; gap:3px 12px; font-size:0.78rem; }
+.popup-label { color:#94a3b8; }
+.popup-value { font-weight:600; color:#e2e8f0; text-align:right; }
+.popup-value.hi { color:#34d399; }
+.popup-bar   { margin-top:7px; height:5px; border-radius:3px; background:#334155; }
+.popup-bar-fill { height:100%; border-radius:3px; }
+.popup-nodata { font-size:0.78rem; color:#64748b; font-style:italic; padding:4px 0; }
+.popup-filter-badge {
+  display:inline-block; font-size:0.68rem; padding:1px 7px;
+  border-radius:4px; background:#0f3460; color:#93c5fd; margin-bottom:6px;
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="header-top">
+    <div>
+      <h1>🏠 Huslejekort – Storkøbenhavn &amp; Nordsjælland</h1>
+      <p>Gennemsnitlig månedsleje pr. postnummer &nbsp;·&nbsp;
+         <span id="zip-count"></span> postnumre &nbsp;·&nbsp;
+         <span id="listing-count"></span> annoncer</p>
+    </div>
+    <div class="btn-group">
+      <span class="filter-label">Vis:</span>
+      <button class="ctrl-btn active" data-mode="rent"  onclick="setMode('rent')">Månedsleje</button>
+      <button class="ctrl-btn"        data-mode="sqmyr" onclick="setMode('sqmyr')">Kr/m²/år</button>
+      <button class="ctrl-btn"        data-mode="count" onclick="setMode('count')">Antal annoncer</button>
+    </div>
+  </div>
+
+  <!-- Sub-filter (kun synlig i Månedsleje-mode) -->
+  <div id="sub-filter">
+    <span class="filter-label">Rum:</span>
+    <div class="btn-group">
+      <button class="ctrl-btn sub active" data-sf="all" onclick="setSub('all')">Alle</button>
+      <button class="ctrl-btn sub"        data-sf="1"   onclick="setSub('1')">1 vær.</button>
+      <button class="ctrl-btn sub"        data-sf="2"   onclick="setSub('2')">2 vær.</button>
+      <button class="ctrl-btn sub"        data-sf="3"   onclick="setSub('3')">3 vær.</button>
+      <button class="ctrl-btn sub"        data-sf="4"   onclick="setSub('4')">4 vær.</button>
+      <button class="ctrl-btn sub"        data-sf="5"   onclick="setSub('5')">5+ vær.</button>
+    </div>
+    <span class="filter-sep">·</span>
+    <span class="filter-label">Størrelse:</span>
+    <div class="btn-group">
+      <button class="ctrl-btn sub" data-sf="sz_s"  onclick="setSub('sz_s')">&lt;50 m²</button>
+      <button class="ctrl-btn sub" data-sf="sz_m"  onclick="setSub('sz_m')">50–74 m²</button>
+      <button class="ctrl-btn sub" data-sf="sz_l"  onclick="setSub('sz_l')">75–99 m²</button>
+      <button class="ctrl-btn sub" data-sf="sz_xl" onclick="setSub('sz_xl')">100+ m²</button>
+    </div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<div id="stats-bar">
+  Laveste: <span id="stat-min">–</span> &nbsp;|&nbsp;
+  Median: <span id="stat-med">–</span> &nbsp;|&nbsp;
+  Højeste: <span id="stat-max">–</span> &nbsp;|&nbsp;
+  Annoncer: <span id="stat-total">–</span>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STAMDATA – alle postnumre med samlet gennemsnit
+// ═══════════════════════════════════════════════════════════════
+const DATA = [
+  { zip:"1000", city:"København K",       lat:55.680, lng:12.570, count:244,  avg:23345, min:6772,  max:49995, sqm:212 },
+  { zip:"1500", city:"København V",       lat:55.672, lng:12.556, count:238,  avg:18360, min:7252,  max:45000, sqm:250 },
+  { zip:"1900", city:"Frederiksberg C",   lat:55.676, lng:12.531, count:67,   avg:18440, min:8000,  max:35000, sqm:237 },
+  { zip:"2000", city:"Frederiksberg",     lat:55.680, lng:12.519, count:286,  avg:14272, min:7600,  max:40000, sqm:254 },
+  { zip:"2100", city:"København Ø",       lat:55.704, lng:12.577, count:231,  avg:18432, min:5215,  max:45000, sqm:225 },
+  { zip:"2200", city:"København N",       lat:55.699, lng:12.552, count:128,  avg:14366, min:5215,  max:30617, sqm:228 },
+  { zip:"2300", city:"København S",       lat:55.656, lng:12.573, count:975,  avg:15165, min:1795,  max:49000, sqm:210 },
+  { zip:"2400", city:"København NV",      lat:55.696, lng:12.528, count:181,  avg:12774, min:6167,  max:28000, sqm:238 },
+  { zip:"2450", city:"København SV",      lat:55.658, lng:12.527, count:430,  avg:15548, min:6000,  max:34500, sqm:213 },
+  { zip:"2500", city:"Valby",             lat:55.660, lng:12.508, count:361,  avg:14661, min:5500,  max:32500, sqm:206 },
+  { zip:"2600", city:"Glostrup",          lat:55.666, lng:12.396, count:179,  avg:12850, min:5612,  max:20500, sqm:159 },
+  { zip:"2605", city:"Brøndby Strand",    lat:55.630, lng:12.430, count:173,  avg:11888, min:6400,  max:26000, sqm:176 },
+  { zip:"2610", city:"Rødovre",           lat:55.685, lng:12.454, count:226,  avg:13931, min:6400,  max:29000, sqm:169 },
+  { zip:"2620", city:"Albertslund",       lat:55.660, lng:12.359, count:147,  avg:14092, min:100,   max:19000, sqm:138 },
+  { zip:"2630", city:"Taastrup",          lat:55.649, lng:12.297, count:189,  avg:12524, min:6200,  max:28000, sqm:149 },
+  { zip:"2635", city:"Ishøj",             lat:55.617, lng:12.353, count:62,   avg:13560, min:7000,  max:21000, sqm:159 },
+  { zip:"2640", city:"Hedehusene",        lat:55.653, lng:12.205, count:73,   avg:11938, min:7485,  max:22900, sqm:155 },
+  { zip:"2650", city:"Hvidovre",          lat:55.637, lng:12.474, count:46,   avg:13759, min:6800,  max:29000, sqm:167 },
+  { zip:"2665", city:"Vallensbæk Strand", lat:55.628, lng:12.378, count:62,   avg:13680, min:7200,  max:22500, sqm:151 },
+  { zip:"2670", city:"Greve",             lat:55.594, lng:12.296, count:104,  avg:13875, min:6900,  max:21900, sqm:148 },
+  { zip:"2680", city:"Solrød Strand",     lat:55.546, lng:12.228, count:20,   avg:12142, min:6900,  max:15338, sqm:155 },
+  { zip:"2700", city:"Brønshøj",          lat:55.706, lng:12.499, count:81,   avg:11832, min:4681,  max:30000, sqm:183 },
+  { zip:"2720", city:"Vanløse",           lat:55.686, lng:12.490, count:77,   avg:12446, min:6800,  max:35800, sqm:218 },
+  { zip:"2730", city:"Herlev",            lat:55.727, lng:12.435, count:101,  avg:13729, min:8500,  max:17650, sqm:169 },
+  { zip:"2740", city:"Skovlunde",         lat:55.726, lng:12.393, count:23,   avg:12683, min:9000,  max:24000, sqm:172 },
+  { zip:"2750", city:"Ballerup",          lat:55.731, lng:12.358, count:137,  avg:11903, min:3915,  max:23000, sqm:161 },
+  { zip:"2760", city:"Måløv",             lat:55.744, lng:12.325, count:2,    avg:15375, min:15250, max:15500, sqm:168 },
+  { zip:"2765", city:"Smørum",            lat:55.746, lng:12.291, count:23,   avg:16676, min:12500, max:25000, sqm:145 },
+  { zip:"2770", city:"Kastrup",           lat:55.631, lng:12.641, count:19,   avg:13094, min:4536,  max:20000, sqm:170 },
+  { zip:"2791", city:"Dragør",            lat:55.593, lng:12.665, count:11,   avg:20284, min:10100, max:45000, sqm:155 },
+  { zip:"2800", city:"Kongens Lyngby",    lat:55.773, lng:12.506, count:94,   avg:14120, min:5495,  max:40000, sqm:202 },
+  { zip:"2820", city:"Gentofte",          lat:55.752, lng:12.549, count:36,   avg:22638, min:6000,  max:48000, sqm:181 },
+  { zip:"2830", city:"Virum",             lat:55.793, lng:12.497, count:9,    avg:17922, min:7560,  max:32000, sqm:150 },
+  { zip:"2840", city:"Holte",             lat:55.807, lng:12.471, count:19,   avg:20127, min:6500,  max:49000, sqm:160 },
+  { zip:"2850", city:"Nærum",             lat:55.813, lng:12.534, count:11,   avg:14696, min:11109, max:22000, sqm:209 },
+  { zip:"2860", city:"Søborg",            lat:55.737, lng:12.502, count:104,  avg:12783, min:4633,  max:35000, sqm:180 },
+  { zip:"2870", city:"Dyssegård",         lat:55.742, lng:12.530, count:9,    avg:11378, min:8000,  max:21000, sqm:172 },
+  { zip:"2880", city:"Bagsværd",          lat:55.757, lng:12.456, count:31,   avg:12261, min:6000,  max:24000, sqm:163 },
+  { zip:"2900", city:"Hellerup",          lat:55.731, lng:12.577, count:98,   avg:25885, min:6000,  max:46900, sqm:207 },
+  { zip:"2920", city:"Charlottenlund",    lat:55.760, lng:12.590, count:42,   avg:20814, min:6388,  max:45000, sqm:189 },
+  { zip:"2930", city:"Klampenborg",       lat:55.773, lng:12.609, count:10,   avg:25512, min:9200,  max:49900, sqm:189 },
+  { zip:"2942", city:"Skodsborg",         lat:55.817, lng:12.578, count:9,    avg:26328, min:9750,  max:35000, sqm:217 },
+  { zip:"2950", city:"Vedbæk",            lat:55.847, lng:12.572, count:25,   avg:26758, min:7631,  max:40000, sqm:186 },
+  { zip:"2960", city:"Rungsted Kyst",     lat:55.878, lng:12.553, count:16,   avg:19313, min:5850,  max:32500, sqm:155 },
+  { zip:"2970", city:"Hørsholm",          lat:55.884, lng:12.500, count:46,   avg:15330, min:5950,  max:32500, sqm:166 },
+  { zip:"2980", city:"Kokkedal",          lat:55.929, lng:12.517, count:28,   avg:15814, min:7500,  max:30000, sqm:144 },
+  { zip:"2990", city:"Nivå",              lat:55.924, lng:12.497, count:9,    avg:17739, min:11000, max:23000, sqm:152 },
+  { zip:"3000", city:"Helsingør",         lat:56.036, lng:12.613, count:70,   avg:11351, min:3400,  max:24500, sqm:132 },
+  { zip:"3050", city:"Humlebæk",          lat:55.971, lng:12.526, count:19,   avg:14068, min:7200,  max:32500, sqm:149 },
+  { zip:"3060", city:"Espergærde",        lat:56.014, lng:12.575, count:47,   avg:15913, min:6500,  max:23500, sqm:146 },
+  { zip:"3200", city:"Helsinge",          lat:56.021, lng:12.200, count:37,   avg:12459, min:9400,  max:17600, sqm:137 },
+  { zip:"3220", city:"Tisvildeleje",      lat:56.069, lng:11.881, count:4,    avg:16225, min:12900, max:25000, sqm:150 },
+  { zip:"3230", city:"Græsted",           lat:56.063, lng:12.294, count:10,   avg:10644, min:8900,  max:16500, sqm:125 },
+  { zip:"3250", city:"Gilleleje",         lat:56.124, lng:12.309, count:12,   avg:11992, min:6000,  max:16500, sqm:137 },
+  { zip:"3320", city:"Vinge",             lat:55.852, lng:12.070, count:16,   avg:13423, min:6900,  max:17950, sqm:129 },
+  { zip:"3400", city:"Hillerød",          lat:55.929, lng:12.307, count:250,  avg:13093, min:4500,  max:29800, sqm:156 },
+  { zip:"3450", city:"Allerød",           lat:55.869, lng:12.345, count:22,   avg:13855, min:4000,  max:25000, sqm:175 },
+  { zip:"3460", city:"Birkerød",          lat:55.847, lng:12.430, count:80,   avg:14781, min:5000,  max:28000, sqm:153 },
+  { zip:"3480", city:"Fredensborg",       lat:55.974, lng:12.383, count:24,   avg:12604, min:8500,  max:17000, sqm:135 },
+  { zip:"3500", city:"Værløse",           lat:55.773, lng:12.364, count:11,   avg:16636, min:7750,  max:36000, sqm:165 },
+  { zip:"3520", city:"Farum",             lat:55.810, lng:12.358, count:34,   avg:15490, min:5600,  max:32212, sqm:151 },
+  { zip:"3540", city:"Lynge",             lat:55.870, lng:12.246, count:17,   avg:17760, min:13995, max:22995, sqm:157 },
+  { zip:"3550", city:"Slangerup",         lat:55.844, lng:12.170, count:13,   avg:11669, min:6000,  max:18500, sqm:139 },
+  { zip:"3600", city:"Frederikssund",     lat:55.840, lng:12.065, count:96,   avg:10834, min:4800,  max:18150, sqm:143 },
+  { zip:"3630", city:"Jægerspris",        lat:55.856, lng:11.978, count:3,    avg:16437, min:11250, max:20560, sqm:114 },
+  { zip:"3650", city:"Ølstykke",          lat:55.800, lng:12.167, count:51,   avg:12985, min:7480,  max:34400, sqm:150 },
+  { zip:"3660", city:"Stenløse",          lat:55.785, lng:12.172, count:4,    avg:15349, min:12500, max:22000, sqm:139 },
+  { zip:"4000", city:"Roskilde",          lat:55.641, lng:12.085, count:131,  avg:11860, min:4278,  max:23000, sqm:153 },
+  { zip:"4040", city:"Jyllinge",          lat:55.726, lng:12.037, count:8,    avg:14472, min:12000, max:22900, sqm:138 },
+  { zip:"4050", city:"Skibby",            lat:55.748, lng:11.978, count:5,    avg:7640,  min:4300,  max:8900,  sqm:114 },
+  { zip:"4060", city:"Kirke Såby",        lat:55.616, lng:11.875, count:2,    avg:8345,  min:7500,  max:9189,  sqm:100 },
+  { zip:"4070", city:"Kirke Hyllinge",    lat:55.649, lng:11.845, count:9,    avg:12164, min:4100,  max:14854, sqm:129 },
+  { zip:"4300", city:"Holbæk",            lat:55.714, lng:11.714, count:86,   avg:10903, min:4195,  max:16300, sqm:128 },
+  { zip:"4340", city:"Tølløse",           lat:55.637, lng:11.680, count:28,   avg:12509, min:5100,  max:16250, sqm:126 },
+  { zip:"4420", city:"Regstrup",          lat:55.620, lng:11.668, count:3,    avg:10717, min:9000,  max:11750, sqm:98  },
+  { zip:"4500", city:"Nykøbing Sj",       lat:55.924, lng:11.671, count:16,   avg:8727,  min:5500,  max:11200, sqm:91  },
+  { zip:"4600", city:"Køge",              lat:55.457, lng:12.183, count:27,   avg:12723, min:6000,  max:20000, sqm:135 },
+  { zip:"8260", city:"Viby Sjælland*",    lat:55.599, lng:11.930, count:15,   avg:11545, min:6000,  max:19500, sqm:115 },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// RUM-DATA – gennemsnitsleje pr. postnummer × antal rum
+// 5 = "5 eller flere"
+// ═══════════════════════════════════════════════════════════════
+const ROOMS_DATA = {"1000":{"1":{"count":16,"avg":16931},"2":{"count":68,"avg":18515},"3":{"count":60,"avg":21706},"4":{"count":68,"avg":27904},"5":{"count":32,"avg":30198}},"1500":{"1":{"count":61,"avg":10836},"2":{"count":58,"avg":16341},"3":{"count":66,"avg":20090},"4":{"count":26,"avg":24343},"5":{"count":27,"avg":29706}},"1900":{"1":{"count":22,"avg":11519},"2":{"count":16,"avg":14522},"3":{"count":10,"avg":23280},"4":{"count":9,"avg":24428},"5":{"count":10,"avg":29708}},"2000":{"1":{"count":119,"avg":9337},"2":{"count":74,"avg":13379},"3":{"count":53,"avg":19916},"4":{"count":26,"avg":19656},"5":{"count":14,"avg":29570}},"2100":{"1":{"count":39,"avg":10091},"2":{"count":70,"avg":15083},"3":{"count":62,"avg":18829},"4":{"count":37,"avg":25147},"5":{"count":23,"avg":30897}},"2200":{"1":{"count":45,"avg":10226},"2":{"count":34,"avg":12812},"3":{"count":26,"avg":16725},"4":{"count":21,"avg":21707},"5":{"count":2,"avg":26159}},"2300":{"1":{"count":246,"avg":9533},"2":{"count":227,"avg":13865},"3":{"count":247,"avg":16776},"4":{"count":189,"avg":18892},"5":{"count":66,"avg":23932}},"2400":{"1":{"count":84,"avg":9856},"2":{"count":42,"avg":12445},"3":{"count":41,"avg":16448},"4":{"count":13,"avg":20596},"5":{"count":1,"avg":19500}},"2450":{"1":{"count":109,"avg":9235},"2":{"count":82,"avg":14611},"3":{"count":142,"avg":17448},"4":{"count":88,"avg":20378},"5":{"count":9,"avg":23344}},"2500":{"1":{"count":99,"avg":9586},"2":{"count":77,"avg":13079},"3":{"count":88,"avg":16057},"4":{"count":81,"avg":19143},"5":{"count":16,"avg":23315}},"2600":{"1":{"count":11,"avg":9363},"2":{"count":50,"avg":11057},"3":{"count":81,"avg":13131},"4":{"count":29,"avg":15007},"5":{"count":8,"avg":18189}},"2605":{"1":{"count":30,"avg":7070},"2":{"count":43,"avg":11477},"3":{"count":65,"avg":12776},"4":{"count":30,"avg":14318},"5":{"count":5,"avg":18219}},"2610":{"1":{"count":14,"avg":8416},"2":{"count":77,"avg":12059},"3":{"count":60,"avg":14217},"4":{"count":63,"avg":16072},"5":{"count":12,"avg":19712}},"2620":{"2":{"count":12,"avg":11025},"3":{"count":78,"avg":13392},"4":{"count":40,"avg":15260},"5":{"count":17,"avg":16724}},"2630":{"1":{"count":5,"avg":8350},"2":{"count":36,"avg":10771},"3":{"count":95,"avg":12394},"4":{"count":47,"avg":13888},"5":{"count":6,"avg":17900}},"2635":{"1":{"count":2,"avg":7225},"2":{"count":5,"avg":11120},"3":{"count":42,"avg":12861},"4":{"count":10,"avg":17113},"5":{"count":3,"avg":19800}},"2640":{"1":{"count":4,"avg":7646},"2":{"count":22,"avg":10631},"3":{"count":24,"avg":12018},"4":{"count":20,"avg":13146},"5":{"count":3,"avg":18550}},"2650":{"1":{"count":5,"avg":8302},"2":{"count":15,"avg":10907},"3":{"count":7,"avg":14064},"4":{"count":17,"avg":16609},"5":{"count":2,"avg":23500}},"2665":{"1":{"count":3,"avg":7900},"2":{"count":17,"avg":10637},"3":{"count":13,"avg":13365},"4":{"count":22,"avg":15544},"5":{"count":7,"avg":18279}},"2670":{"1":{"count":1,"avg":6900},"2":{"count":20,"avg":10297},"3":{"count":22,"avg":12926},"4":{"count":45,"avg":15382},"5":{"count":16,"avg":15850}},"2680":{"1":{"count":2,"avg":7200},"2":{"count":5,"avg":8940},"3":{"count":4,"avg":12650},"4":{"count":4,"avg":14485},"5":{"count":5,"avg":15040}},"2700":{"1":{"count":16,"avg":8744},"2":{"count":22,"avg":10155},"3":{"count":25,"avg":12170},"4":{"count":12,"avg":14595},"5":{"count":6,"avg":19283}},"2720":{"1":{"count":35,"avg":9095},"2":{"count":14,"avg":10796},"3":{"count":14,"avg":13655},"4":{"count":8,"avg":19043},"5":{"count":6,"avg":24225}},"2730":{"1":{"count":1,"avg":12600},"2":{"count":35,"avg":11900},"3":{"count":30,"avg":13617},"4":{"count":29,"avg":15347},"5":{"count":6,"avg":17325}},"2740":{"2":{"count":10,"avg":10940},"3":{"count":11,"avg":12914},"4":{"count":1,"avg":16250},"5":{"count":1,"avg":24000}},"2750":{"1":{"count":25,"avg":6011},"2":{"count":45,"avg":11465},"3":{"count":45,"avg":13257},"4":{"count":16,"avg":15748},"5":{"count":6,"avg":19317}},"2760":{"3":{"count":2,"avg":15375}},"2765":{"3":{"count":3,"avg":13432},"4":{"count":19,"avg":16908},"5":{"count":1,"avg":22000}},"2770":{"1":{"count":1,"avg":4536},"2":{"count":8,"avg":10369},"3":{"count":3,"avg":10900},"4":{"count":6,"avg":18100},"5":{"count":1,"avg":20000}},"2791":{"2":{"count":3,"avg":12275},"3":{"count":2,"avg":14900},"4":{"count":1,"avg":20000},"5":{"count":5,"avg":27300}},"2800":{"1":{"count":33,"avg":8390},"2":{"count":26,"avg":12397},"3":{"count":14,"avg":16032},"4":{"count":16,"avg":21162},"5":{"count":5,"avg":33000}},"2820":{"1":{"count":1,"avg":6000},"2":{"count":8,"avg":11649},"3":{"count":7,"avg":16071},"4":{"count":5,"avg":20621},"5":{"count":15,"avg":33346}},"2830":{"2":{"count":1,"avg":8500},"3":{"count":4,"avg":14014},"4":{"count":1,"avg":23245},"5":{"count":3,"avg":24500}},"2840":{"2":{"count":6,"avg":11396},"3":{"count":4,"avg":16197},"4":{"count":4,"avg":19388},"5":{"count":5,"avg":34340}},"2850":{"1":{"count":1,"avg":18900},"2":{"count":2,"avg":12295},"3":{"count":5,"avg":11854},"4":{"count":2,"avg":18450},"5":{"count":1,"avg":22000}},"2860":{"1":{"count":33,"avg":6905},"2":{"count":13,"avg":11658},"3":{"count":26,"avg":13457},"4":{"count":27,"avg":17028},"5":{"count":5,"avg":28080}},"2870":{"2":{"count":7,"avg":9700},"3":{"count":1,"avg":13500},"4":{"count":1,"avg":21000}},"2880":{"1":{"count":6,"avg":7750},"2":{"count":14,"avg":10294},"3":{"count":4,"avg":14248},"4":{"count":3,"avg":16333},"5":{"count":4,"avg":20875}},"2900":{"1":{"count":2,"avg":13700},"2":{"count":17,"avg":12526},"3":{"count":29,"avg":22409},"4":{"count":24,"avg":29838},"5":{"count":26,"avg":35786}},"2920":{"1":{"count":2,"avg":6388},"2":{"count":8,"avg":14332},"3":{"count":17,"avg":17015},"4":{"count":4,"avg":24625},"5":{"count":11,"avg":32635}},"2930":{"2":{"count":1,"avg":15000},"3":{"count":5,"avg":14113},"5":{"count":4,"avg":42388}},"2942":{"2":{"count":1,"avg":9750},"3":{"count":6,"avg":29833},"4":{"count":2,"avg":24100}},"2950":{"3":{"count":8,"avg":20220},"4":{"count":5,"avg":25740},"5":{"count":12,"avg":31542}},"2960":{"1":{"count":1,"avg":5850},"2":{"count":1,"avg":12200},"3":{"count":5,"avg":15639},"4":{"count":5,"avg":19660},"5":{"count":4,"avg":28615}},"2970":{"1":{"count":4,"avg":11620},"2":{"count":9,"avg":11776},"3":{"count":11,"avg":14820},"4":{"count":11,"avg":15214},"5":{"count":11,"avg":20213}},"2980":{"1":{"count":1,"avg":7500},"2":{"count":1,"avg":10000},"3":{"count":6,"avg":12917},"4":{"count":9,"avg":15622},"5":{"count":11,"avg":18836}},"2990":{"3":{"count":1,"avg":13500},"4":{"count":8,"avg":18269}},"3000":{"1":{"count":3,"avg":6851},"2":{"count":26,"avg":8473},"3":{"count":27,"avg":12575},"4":{"count":11,"avg":14462},"5":{"count":3,"avg":18362}},"3050":{"1":{"count":1,"avg":7800},"2":{"count":3,"avg":9233},"3":{"count":11,"avg":11550},"4":{"count":1,"avg":14250},"5":{"count":3,"avg":30167}},"3060":{"1":{"count":3,"avg":7332},"2":{"count":2,"avg":13998},"3":{"count":13,"avg":13845},"4":{"count":8,"avg":16781},"5":{"count":21,"avg":18271}},"3200":{"2":{"count":9,"avg":9902},"3":{"count":13,"avg":12188},"4":{"count":14,"avg":13988},"5":{"count":1,"avg":17600}},"3220":{"4":{"count":3,"avg":13300},"5":{"count":1,"avg":25000}},"3230":{"2":{"count":2,"avg":9348},"3":{"count":6,"avg":11358},"4":{"count":2,"avg":9801}},"3250":{"1":{"count":1,"avg":6000},"3":{"count":8,"avg":11438},"4":{"count":3,"avg":15467}},"3320":{"1":{"count":1,"avg":6900},"2":{"count":3,"avg":8383},"3":{"count":5,"avg":13340},"4":{"count":3,"avg":16790},"5":{"count":4,"avg":16413}},"3400":{"1":{"count":17,"avg":7283},"2":{"count":69,"avg":11414},"3":{"count":107,"avg":13285},"4":{"count":45,"avg":15837},"5":{"count":12,"avg":18974}},"3450":{"1":{"count":2,"avg":4376},"2":{"count":6,"avg":12351},"3":{"count":12,"avg":16295},"4":{"count":2,"avg":13206}},"3460":{"1":{"count":2,"avg":6900},"2":{"count":7,"avg":12044},"3":{"count":35,"avg":14103},"4":{"count":33,"avg":16054},"5":{"count":3,"avg":20317}},"3480":{"2":{"count":9,"avg":9544},"3":{"count":4,"avg":12549},"4":{"count":10,"avg":14939},"5":{"count":1,"avg":17000}},"3500":{"1":{"count":1,"avg":7750},"3":{"count":4,"avg":13275},"4":{"count":3,"avg":15850},"5":{"count":3,"avg":24867}},"3520":{"1":{"count":3,"avg":6700},"2":{"count":1,"avg":6888},"3":{"count":18,"avg":13871},"4":{"count":7,"avg":17549},"5":{"count":5,"avg":25427}},"3540":{"3":{"count":4,"avg":14870},"4":{"count":1,"avg":17000},"5":{"count":12,"avg":18787}},"3550":{"2":{"count":4,"avg":8200},"3":{"count":5,"avg":11900},"4":{"count":4,"avg":14850}},"3600":{"1":{"count":2,"avg":6563},"2":{"count":34,"avg":9296},"3":{"count":48,"avg":11500},"4":{"count":11,"avg":13123},"5":{"count":1,"avg":14500}},"3630":{"3":{"count":1,"avg":11250},"5":{"count":2,"avg":19030}},"3650":{"1":{"count":2,"avg":8600},"2":{"count":11,"avg":10475},"3":{"count":26,"avg":13133},"4":{"count":9,"avg":14136},"5":{"count":3,"avg":20369}},"3660":{"4":{"count":4,"avg":15349}},"4000":{"1":{"count":19,"avg":6859},"2":{"count":33,"avg":10182},"3":{"count":53,"avg":12317},"4":{"count":17,"avg":15220},"5":{"count":10,"avg":18263}},"4040":{"3":{"count":2,"avg":13475},"4":{"count":5,"avg":15961},"5":{"count":1,"avg":12000}},"4050":{"2":{"count":3,"avg":6833},"3":{"count":1,"avg":8800},"5":{"count":1,"avg":8900}},"4060":{"3":{"count":2,"avg":8345}},"4070":{"1":{"count":1,"avg":4100},"3":{"count":1,"avg":8400},"4":{"count":1,"avg":13175},"5":{"count":6,"avg":13966}},"4300":{"1":{"count":2,"avg":5725},"2":{"count":17,"avg":8704},"3":{"count":42,"avg":10976},"4":{"count":21,"avg":12527},"5":{"count":4,"avg":13542}},"4340":{"2":{"count":1,"avg":5100},"3":{"count":9,"avg":10078},"4":{"count":10,"avg":13460},"5":{"count":8,"avg":14981}},"4420":{"2":{"count":1,"avg":11400},"4":{"count":1,"avg":9000},"5":{"count":1,"avg":11750}},"4500":{"2":{"count":5,"avg":6986},"3":{"count":2,"avg":8445},"4":{"count":6,"avg":9804},"5":{"count":3,"avg":9663}},"4600":{"1":{"count":1,"avg":6000},"2":{"count":3,"avg":8232},"3":{"count":12,"avg":13926},"4":{"count":11,"avg":13247}},"8260":{"1":{"count":1,"avg":6000},"2":{"count":1,"avg":6167},"3":{"count":3,"avg":11167},"4":{"count":9,"avg":12001},"5":{"count":1,"avg":19500}}};
+
+// ═══════════════════════════════════════════════════════════════
+// M²-DATA – gennemsnitsleje pr. postnummer × størrelse
+// s=<50, m=50–74, l=75–99, xl=100+
+// ═══════════════════════════════════════════════════════════════
+const SQM_DATA = {"1000":{"s":{"count":15,"avg":12738},"m":{"count":34,"avg":14960},"l":{"count":47,"avg":19176},"xl":{"count":148,"avg":27670}},"1500":{"s":{"count":64,"avg":10880},"m":{"count":53,"avg":15553},"l":{"count":47,"avg":19367},"xl":{"count":74,"avg":26200}},"1900":{"s":{"count":21,"avg":11646},"m":{"count":15,"avg":14280},"l":{"count":7,"avg":17186},"xl":{"count":24,"avg":27351}},"2000":{"s":{"count":145,"avg":9940},"m":{"count":46,"avg":13304},"l":{"count":37,"avg":16904},"xl":{"count":58,"avg":24189}},"2100":{"s":{"count":58,"avg":11329},"m":{"count":35,"avg":14012},"l":{"count":57,"avg":18026},"xl":{"count":81,"avg":25714}},"2200":{"s":{"count":53,"avg":11015},"m":{"count":31,"avg":12321},"l":{"count":22,"avg":16852},"xl":{"count":22,"avg":22833}},"2300":{"s":{"count":259,"avg":9643},"m":{"count":184,"avg":13615},"l":{"count":293,"avg":16236},"xl":{"count":239,"avg":21032}},"2400":{"s":{"count":90,"avg":9831},"m":{"count":40,"avg":12955},"l":{"count":38,"avg":16990},"xl":{"count":13,"avg":20272}},"2450":{"s":{"count":109,"avg":9219},"m":{"count":55,"avg":14203},"l":{"count":164,"avg":17051},"xl":{"count":102,"avg":20620}},"2500":{"s":{"count":95,"avg":9335},"m":{"count":84,"avg":13096},"l":{"count":99,"avg":16321},"xl":{"count":83,"avg":20362}},"2600":{"s":{"count":5,"avg":7762},"m":{"count":59,"avg":10962},"l":{"count":86,"avg":13361},"xl":{"count":29,"avg":16054}},"2605":{"s":{"count":30,"avg":7070},"m":{"count":52,"avg":11567},"l":{"count":73,"avg":13067},"xl":{"count":18,"avg":16067}},"2610":{"s":{"count":20,"avg":9240},"m":{"count":62,"avg":12068},"l":{"count":88,"avg":14322},"xl":{"count":56,"avg":17056}},"2620":{"m":{"count":12,"avg":9791},"l":{"count":59,"avg":13158},"xl":{"count":76,"avg":15497}},"2630":{"s":{"count":8,"avg":7975},"m":{"count":25,"avg":11132},"l":{"count":129,"avg":12565},"xl":{"count":27,"avg":14966}},"2635":{"s":{"count":2,"avg":7225},"m":{"count":5,"avg":11120},"l":{"count":42,"avg":12861},"xl":{"count":13,"avg":17733}},"2640":{"s":{"count":4,"avg":7646},"m":{"count":27,"avg":10691},"l":{"count":34,"avg":12541},"xl":{"count":8,"avg":15731}},"2650":{"s":{"count":8,"avg":8527},"m":{"count":11,"avg":11382},"l":{"count":8,"avg":13144},"xl":{"count":19,"avg":17597}},"2665":{"s":{"count":6,"avg":8350},"m":{"count":11,"avg":10405},"l":{"count":13,"avg":12853},"xl":{"count":32,"avg":16142}},"2670":{"s":{"count":2,"avg":8400},"m":{"count":24,"avg":10787},"l":{"count":19,"avg":12701},"xl":{"count":59,"avg":15695}},"2680":{"s":{"count":3,"avg":7767},"m":{"count":3,"avg":9300},"l":{"count":5,"avg":11700},"xl":{"count":9,"avg":14793}},"2700":{"s":{"count":17,"avg":8452},"m":{"count":30,"avg":10589},"l":{"count":23,"avg":13237},"xl":{"count":11,"avg":17509}},"2720":{"s":{"count":40,"avg":9132},"m":{"count":12,"avg":11347},"l":{"count":10,"avg":14222},"xl":{"count":15,"avg":20980}},"2730":{"m":{"count":33,"avg":11915},"l":{"count":40,"avg":13905},"xl":{"count":28,"avg":15615}},"2740":{"m":{"count":13,"avg":11165},"l":{"count":8,"avg":13288},"xl":{"count":2,"avg":20125}},"2750":{"s":{"count":23,"avg":6038},"m":{"count":52,"avg":11393},"l":{"count":45,"avg":13418},"xl":{"count":17,"avg":17382}},"2760":{"l":{"count":2,"avg":15375}},"2765":{"l":{"count":2,"avg":13898},"xl":{"count":21,"avg":16940}},"2770":{"s":{"count":2,"avg":6218},"m":{"count":8,"avg":10563},"l":{"count":6,"avg":16225},"xl":{"count":3,"avg":18167}},"2791":{"m":{"count":3,"avg":12275},"l":{"count":2,"avg":14900},"xl":{"count":6,"avg":26083}},"2800":{"s":{"count":35,"avg":8304},"m":{"count":28,"avg":12710},"l":{"count":9,"avg":18081},"xl":{"count":22,"avg":23546}},"2820":{"s":{"count":2,"avg":6750},"m":{"count":7,"avg":12085},"l":{"count":3,"avg":15665},"xl":{"count":24,"avg":27912}},"2830":{"m":{"count":1,"avg":8500},"l":{"count":2,"avg":9780},"xl":{"count":6,"avg":22207}},"2840":{"m":{"count":6,"avg":10443},"l":{"count":2,"avg":11500},"xl":{"count":11,"avg":26977}},"2850":{"s":{"count":1,"avg":18900},"m":{"count":2,"avg":12295},"l":{"count":6,"avg":12528},"xl":{"count":2,"avg":21500}},"2860":{"s":{"count":35,"avg":7076},"m":{"count":14,"avg":10619},"l":{"count":28,"avg":14660},"xl":{"count":27,"avg":19357}},"2870":{"s":{"count":4,"avg":8225},"m":{"count":2,"avg":10750},"l":{"count":1,"avg":13500},"xl":{"count":2,"avg":17250}},"2880":{"s":{"count":3,"avg":8680},"m":{"count":17,"avg":9739},"l":{"count":3,"avg":12665},"xl":{"count":8,"avg":18813}},"2900":{"s":{"count":7,"avg":9700},"m":{"count":13,"avg":14103},"l":{"count":15,"avg":18613},"xl":{"count":63,"avg":31846}},"2920":{"s":{"count":2,"avg":6388},"m":{"count":10,"avg":12551},"l":{"count":13,"avg":17693},"xl":{"count":17,"avg":29758}},"2930":{"m":{"count":2,"avg":12434},"l":{"count":2,"avg":9350},"xl":{"count":6,"avg":35258}},"2942":{"m":{"count":1,"avg":9750},"l":{"count":1,"avg":20000},"xl":{"count":7,"avg":29600}},"2950":{"m":{"count":2,"avg":7631},"l":{"count":3,"avg":21867},"xl":{"count":20,"avg":29405}},"2960":{"s":{"count":1,"avg":5850},"l":{"count":4,"avg":12925},"xl":{"count":11,"avg":22860}},"2970":{"s":{"count":1,"avg":5950},"m":{"count":16,"avg":12521},"l":{"count":6,"avg":13067},"xl":{"count":23,"avg":18282}},"2980":{"s":{"count":1,"avg":7500},"m":{"count":1,"avg":10000},"l":{"count":6,"avg":12917},"xl":{"count":20,"avg":17390}},"2990":{"l":{"count":1,"avg":13500},"xl":{"count":8,"avg":18269}},"3000":{"s":{"count":3,"avg":5086},"m":{"count":23,"avg":7786},"l":{"count":23,"avg":11910},"xl":{"count":21,"avg":15537}},"3050":{"s":{"count":1,"avg":7800},"m":{"count":6,"avg":9824},"l":{"count":8,"avg":11444},"xl":{"count":4,"avg":27250}},"3060":{"s":{"count":3,"avg":7332},"m":{"count":1,"avg":12995},"l":{"count":13,"avg":13384},"xl":{"count":30,"avg":17965}},"3200":{"m":{"count":7,"avg":9809},"l":{"count":14,"avg":11621},"xl":{"count":16,"avg":14352}},"3220":{"l":{"count":3,"avg":13300},"xl":{"count":1,"avg":25000}},"3230":{"m":{"count":2,"avg":9348},"l":{"count":6,"avg":10241},"xl":{"count":2,"avg":13150}},"3250":{"s":{"count":1,"avg":6000},"m":{"count":1,"avg":9500},"l":{"count":5,"avg":12110},"xl":{"count":5,"avg":13570}},"3320":{"s":{"count":1,"avg":6900},"m":{"count":3,"avg":8383},"l":{"count":2,"avg":12500},"xl":{"count":10,"avg":15772}},"3400":{"s":{"count":20,"avg":7980},"m":{"count":69,"avg":11143},"l":{"count":95,"avg":13196},"xl":{"count":66,"avg":16532}},"3450":{"s":{"count":3,"avg":5484},"m":{"count":3,"avg":15067},"l":{"count":12,"avg":14792},"xl":{"count":4,"avg":16413}},"3460":{"m":{"count":8,"avg":9701},"l":{"count":43,"avg":14056},"xl":{"count":29,"avg":17257}},"3480":{"m":{"count":7,"avg":9207},"l":{"count":6,"avg":12449},"xl":{"count":11,"avg":14849}},"3500":{"s":{"count":1,"avg":7750},"l":{"count":6,"avg":13692},"xl":{"count":4,"avg":23275}},"3520":{"s":{"count":3,"avg":6700},"m":{"count":1,"avg":6888},"l":{"count":17,"avg":13456},"xl":{"count":13,"avg":20838}},"3540":{"l":{"count":4,"avg":14870},"xl":{"count":13,"avg":18650}},"3550":{"m":{"count":6,"avg":8450},"l":{"count":3,"avg":11733},"xl":{"count":4,"avg":16450}},"3600":{"s":{"count":3,"avg":7750},"m":{"count":45,"avg":9804},"l":{"count":36,"avg":11537},"xl":{"count":12,"avg":13357}},"3630":{"xl":{"count":3,"avg":16437}},"3650":{"s":{"count":2,"avg":8600},"m":{"count":13,"avg":10502},"l":{"count":23,"avg":13264},"xl":{"count":13,"avg":15648}},"3660":{"l":{"count":3,"avg":13132},"xl":{"count":1,"avg":22000}},"4000":{"s":{"count":23,"avg":7534},"m":{"count":37,"avg":9545},"l":{"count":40,"avg":12896},"xl":{"count":32,"avg":16195}},"4040":{"l":{"count":1,"avg":14450},"xl":{"count":7,"avg":14900}},"4050":{"s":{"count":1,"avg":4300},"m":{"count":2,"avg":8150},"l":{"count":1,"avg":8700},"xl":{"count":1,"avg":8900}},"4060":{"l":{"count":2,"avg":8345}},"4070":{"s":{"count":1,"avg":4100},"m":{"count":1,"avg":8400},"l":{"count":1,"avg":10500},"xl":{"count":6,"avg":14412}},"4300":{"s":{"count":4,"avg":6288},"m":{"count":18,"avg":8709},"l":{"count":35,"avg":10611},"xl":{"count":29,"avg":13253}},"4340":{"m":{"count":2,"avg":6750},"l":{"count":12,"avg":10713},"xl":{"count":14,"avg":14871}},"4420":{"l":{"count":1,"avg":11400},"xl":{"count":2,"avg":10375}},"4500":{"m":{"count":4,"avg":7160},"l":{"count":4,"avg":8014},"xl":{"count":8,"avg":9868}},"4600":{"s":{"count":1,"avg":6000},"m":{"count":2,"avg":9650},"l":{"count":14,"avg":10888},"xl":{"count":10,"avg":16580}},"8260":{"s":{"count":1,"avg":6000},"m":{"count":1,"avg":6167},"l":{"count":5,"avg":11464},"xl":{"count":8,"avg":12961}}};
+
+// ═══════════════════════════════════════════════════════════════
+// HJÆLPEFUNKTIONER
+// ═══════════════════════════════════════════════════════════════
+function lerp(a,b,t){ return a+(b-a)*t; }
+
+function rentColor(v, lo, hi) {
+  const t = Math.min(1, Math.max(0, (v-lo)/(hi-lo)));
+  let r,g,b;
+  if (t < 0.33) { const s=t/0.33;      r=Math.round(lerp(34,234,s));  g=Math.round(lerp(197,179,s)); b=Math.round(lerp(94,8,s));  }
+  else if(t<0.66){const s=(t-0.33)/0.33;r=Math.round(lerp(234,249,s));g=Math.round(lerp(179,115,s));b=Math.round(lerp(8,22,s));  }
+  else           {const s=(t-0.66)/0.34;r=Math.round(lerp(249,239,s));g=Math.round(lerp(115,68,s)); b=Math.round(lerp(22,68,s)); }
+  return `rgb(${r},${g},${b})`;
+}
+function countColor(c,lo,hi){
+  const t=Math.min(1,Math.max(0,(c-lo)/(hi-lo)));
+  return `hsl(${Math.round(220-t*180)},80%,${Math.round(65-t*25)}%)`;
+}
+function fmt(n){  return n!=null ? n.toLocaleString('da-DK')+' kr' : '–'; }
+function fmtSqm(n){ return n!=null ? (n*12).toLocaleString('da-DK')+' kr/m²/år' : '–'; }
+function radius(c,lo,hi){ const t=Math.log(Math.max(1,c-lo+1))/Math.log(hi-lo+1); return 8+t*27; }
+function med(arr){ const s=[...arr].sort((a,b)=>a-b); return s[Math.floor(s.length/2)]; }
+
+// ═══════════════════════════════════════════════════════════════
+// TILSTAND
+// ═══════════════════════════════════════════════════════════════
+let currentMode = 'rent';
+let currentSub  = 'all';   // 'all' | '1'..'5' | 'sz_s'|'sz_m'|'sz_l'|'sz_xl'
+
+const SZ_KEY = { sz_s:'s', sz_m:'m', sz_l:'l', sz_xl:'xl' };
+const SZ_LABEL = { sz_s:'< 50 m²', sz_m:'50–74 m²', sz_l:'75–99 m²', sz_xl:'100+ m²' };
+const ROOM_LABEL = { '1':'1 værelse','2':'2 værelser','3':'3 værelser','4':'4 værelser','5':'5+ værelser' };
+
+// Forudberegnede min/max/median for hele stamdata
+const rentVals  = DATA.map(d=>d.avg);
+const sqmVals   = DATA.map(d=>d.sqm);
+const countVals = DATA.map(d=>d.count);
+const minRent=Math.min(...rentVals), maxRent=Math.max(...rentVals);
+const minSqm =Math.min(...sqmVals),  maxSqm =Math.max(...sqmVals);
+const minCnt =Math.min(...countVals),maxCnt =Math.max(...countVals);
+const totalListings = DATA.reduce((s,d)=>s+d.count,0);
+
+// ═══════════════════════════════════════════════════════════════
+// KORT
+// ═══════════════════════════════════════════════════════════════
+const map = L.map('map',{ center:[55.78,12.35], zoom:10, zoomControl:true });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OSM',
+  subdomains:'abcd', maxZoom:19
+}).addTo(map);
+
+let circleLayer = L.layerGroup().addTo(map);
+
+// ═══════════════════════════════════════════════════════════════
+// TEGN CIRKLER
+// ═══════════════════════════════════════════════════════════════
+function drawCircles() {
+  circleLayer.clearLayers();
+
+  // Saml de værdier der faktisk bruges, til dynamisk farve-range
+  let activeVals = [];
+
+  DATA.forEach(d => {
+    let val = null, cnt = 0;
+
+    if (currentMode === 'rent') {
+      if (currentSub === 'all') {
+        val = d.avg; cnt = d.count;
+      } else if (currentSub.startsWith('sz_')) {
+        const k = SZ_KEY[currentSub];
+        const sd = SQM_DATA[d.zip];
+        if (sd && sd[k]) { val = sd[k].avg; cnt = sd[k].count; }
+      } else {
+        const rd = ROOMS_DATA[d.zip];
+        if (rd && rd[currentSub]) { val = rd[currentSub].avg; cnt = rd[currentSub].count; }
+      }
+    } else if (currentMode === 'sqmyr') {
+      val = d.sqm; cnt = d.count;
+    } else {
+      val = d.count; cnt = d.count;
+    }
+
+    if (val != null) activeVals.push(val);
+  });
+
+  if (activeVals.length === 0) return;
+  const lo = Math.min(...activeVals), hi = Math.max(...activeVals);
+  const medVal = med(activeVals);
+
+  // Opdater stats
+  updateStats(lo, hi, medVal, activeVals.length);
+
+  DATA.forEach(d => {
+    let val = null, cnt = 0;
+
+    if (currentMode === 'rent') {
+      if (currentSub === 'all') {
+        val = d.avg; cnt = d.count;
+      } else if (currentSub.startsWith('sz_')) {
+        const k = SZ_KEY[currentSub];
+        const sd = SQM_DATA[d.zip];
+        if (sd && sd[k]) { val = sd[k].avg; cnt = sd[k].count; }
+      } else {
+        const rd = ROOMS_DATA[d.zip];
+        if (rd && rd[currentSub]) { val = rd[currentSub].avg; cnt = rd[currentSub].count; }
+      }
+    } else if (currentMode === 'sqmyr') {
+      val = d.sqm; cnt = d.count;
+    } else {
+      val = d.count; cnt = d.count;
+    }
+
+    const hasData = (val != null);
+    const r = hasData ? radius(cnt, 1, maxCnt) : 5;
+    const color = hasData
+      ? (currentMode === 'count' ? countColor(val,lo,hi) : rentColor(val,lo,hi))
+      : '#1e293b';
+    const borderColor = hasData ? 'rgba(255,255,255,.25)' : '#334155';
+
+    // Popup-indhold
+    let popupHTML = `<div class="popup-zip">${d.zip}</div><div class="popup-city">${d.city||'–'}</div>`;
+
+    if (!hasData) {
+      popupHTML += `<div class="popup-nodata">Ingen data for dette filter</div>`;
+    } else {
+      // Badge der viser aktivt filter
+      if (currentMode === 'rent' && currentSub !== 'all') {
+        const badge = currentSub.startsWith('sz_') ? SZ_LABEL[currentSub] : ROOM_LABEL[currentSub];
+        popupHTML += `<div class="popup-filter-badge">${badge}</div>`;
+      }
+
+      const rentPct = (val - lo) / (hi - lo || 1);
+      popupHTML += `<div class="popup-grid">`;
+
+      if (currentMode === 'rent') {
+        popupHTML += `<span class="popup-label">Gns. leje</span><span class="popup-value hi">${fmt(val)}/md</span>`;
+        if (currentSub !== 'all') {
+          popupHTML += `<span class="popup-label">Gns. alle typer</span><span class="popup-value">${fmt(d.avg)}/md</span>`;
+        }
+        popupHTML += `<span class="popup-label">Kr/m²/år</span><span class="popup-value">${fmtSqm(d.sqm)}</span>`;
+        popupHTML += `<span class="popup-label">Annoncer</span><span class="popup-value">${cnt.toLocaleString('da-DK')}</span>`;
+      } else if (currentMode === 'sqmyr') {
+        popupHTML += `<span class="popup-label">Kr/m²/år</span><span class="popup-value hi">${fmtSqm(val)}</span>`;
+        popupHTML += `<span class="popup-label">Gns. leje</span><span class="popup-value">${fmt(d.avg)}/md</span>`;
+        popupHTML += `<span class="popup-label">Annoncer</span><span class="popup-value">${d.count.toLocaleString('da-DK')}</span>`;
+      } else {
+        popupHTML += `<span class="popup-label">Annoncer</span><span class="popup-value hi">${val.toLocaleString('da-DK')}</span>`;
+        popupHTML += `<span class="popup-label">Gns. leje</span><span class="popup-value">${fmt(d.avg)}/md</span>`;
+      }
+
+      popupHTML += `</div>`;
+      popupHTML += `<div class="popup-bar"><div class="popup-bar-fill" style="width:${Math.round(rentPct*100)}%;background:${color}"></div></div>`;
+    }
+
+    // Tooltip-tekst
+    let tip;
+    if (!hasData) {
+      tip = `<b>${d.zip}</b> ${d.city||''}<br><i style="color:#64748b">Ingen data</i>`;
+    } else if (currentMode === 'count') {
+      tip = `<b>${d.zip}</b> ${d.city||''}<br>${val.toLocaleString('da-DK')} annoncer`;
+    } else if (currentMode === 'sqmyr') {
+      tip = `<b>${d.zip}</b> ${d.city||''}<br>${fmtSqm(val)}`;
+    } else {
+      tip = `<b>${d.zip}</b> ${d.city||''}<br>${fmt(val)}/md`;
+    }
+
+    L.circleMarker([d.lat, d.lng], {
+      radius: r,
+      fillColor: color,
+      color: borderColor,
+      weight: 1.2,
+      fillOpacity: hasData ? 0.82 : 0.2
+    })
+    .bindPopup(popupHTML, { maxWidth:240 })
+    .bindTooltip(tip, { direction:'top', offset:[0,-r], opacity:.95 })
+    .addTo(circleLayer);
+  });
+
+  // Opdatér legend range
+  updateLegendRange(lo, hi, medVal);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LEGEND
+// ═══════════════════════════════════════════════════════════════
+const legend = L.control({ position:'bottomright' });
+legend.onAdd = function() {
+  const div = L.DomUtil.create('div','legend');
+  div.innerHTML = `
+    <h4 id="legend-title">Månedsleje (alle)</h4>
+    <div class="legend-bar" id="legend-bar" style="background:linear-gradient(to right,#22c55e,#eab308,#f97316,#ef4444)"></div>
+    <div class="legend-labels">
+      <span id="leg-min">–</span><span id="leg-mid">–</span><span id="leg-max">–</span>
+    </div>
+    <div class="legend-size" style="margin-top:10px;">
+      <div style="font-size:0.74rem;color:#93c5fd;margin-bottom:4px;">Cirkelstørrelse = antal</div>
+      <div class="legend-size-row"><div class="legend-dot" style="width:14px;height:14px;"></div><span>Få annoncer</span></div>
+      <div class="legend-size-row"><div class="legend-dot" style="width:26px;height:26px;"></div><span>Mange annoncer</span></div>
+    </div>`;
+  return div;
+};
+legend.addTo(map);
+
+function updateLegendTitle() {
+  const titles = {
+    rent: {
+      all:'Månedsleje (alle)', '1':'1 værelse', '2':'2 værelser', '3':'3 værelser',
+      '4':'4 værelser', '5':'5+ værelser',
+      sz_s:'< 50 m²', sz_m:'50–74 m²', sz_l:'75–99 m²', sz_xl:'100+ m²'
+    },
+    sqmyr:'Kr/m²/år',
+    count:'Antal annoncer'
+  };
+  const t = currentMode === 'rent' ? titles.rent[currentSub] : titles[currentMode];
+  document.getElementById('legend-title').textContent = t;
+}
+
+function updateLegendRange(lo, hi, medV) {
+  if (currentMode === 'count') {
+    document.getElementById('leg-min').textContent = lo.toLocaleString('da-DK');
+    document.getElementById('leg-mid').textContent = Math.round(medV).toLocaleString('da-DK');
+    document.getElementById('leg-max').textContent = hi.toLocaleString('da-DK');
+    document.getElementById('legend-bar').style.background =
+      'linear-gradient(to right,hsl(220,80%,65%),hsl(130,80%,55%),hsl(40,80%,40%))';
+  } else if (currentMode === 'sqmyr') {
+    document.getElementById('leg-min').textContent = (lo*12).toLocaleString('da-DK')+' kr';
+    document.getElementById('leg-mid').textContent = (medV*12).toLocaleString('da-DK')+' kr';
+    document.getElementById('leg-max').textContent = (hi*12).toLocaleString('da-DK')+' kr';
+    document.getElementById('legend-bar').style.background =
+      'linear-gradient(to right,#22c55e,#eab308,#f97316,#ef4444)';
+  } else {
+    document.getElementById('leg-min').textContent = (lo/1000).toFixed(0)+'k kr';
+    document.getElementById('leg-mid').textContent = (medV/1000).toFixed(1)+'k kr';
+    document.getElementById('leg-max').textContent = (hi/1000).toFixed(0)+'k kr';
+    document.getElementById('legend-bar').style.background =
+      'linear-gradient(to right,#22c55e,#eab308,#f97316,#ef4444)';
+  }
+}
+
+function updateStats(lo, hi, medV, n) {
+  const suffix = currentMode === 'count' ? ' annoncer' : (currentMode === 'sqmyr' ? '' : '/md');
+  const fv = v => currentMode === 'sqmyr' ? fmtSqm(v) : (currentMode === 'count' ? v.toLocaleString('da-DK')+suffix : fmt(v)+suffix);
+  document.getElementById('stat-min').textContent = fv(lo);
+  document.getElementById('stat-med').textContent = fv(Math.round(medV));
+  document.getElementById('stat-max').textContent = fv(hi);
+  document.getElementById('stat-total').textContent = totalListings.toLocaleString('da-DK');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KNAPPER
+// ═══════════════════════════════════════════════════════════════
+function setMode(mode) {
+  currentMode = mode;
+  if (mode !== 'rent') currentSub = 'all';
+
+  document.querySelectorAll('.ctrl-btn[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode===mode));
+  document.getElementById('sub-filter').classList.toggle('hidden', mode !== 'rent');
+
+  updateLegendTitle();
+  drawCircles();
+}
+
+function setSub(sf) {
+  currentSub = sf;
+  document.querySelectorAll('.ctrl-btn[data-sf]').forEach(b => b.classList.toggle('active', b.dataset.sf===sf));
+  updateLegendTitle();
+  drawCircles();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('zip-count').textContent = DATA.length;
+document.getElementById('listing-count').textContent = totalListings.toLocaleString('da-DK');
+drawCircles();
+</script>
+</body>
+</html>

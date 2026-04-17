@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Database (må IKKE komme på GitHub — indeholder private data)
+data/ejendom.db
+data/ejendom.db-shm
+data/ejendom.db-wal
+data/*.log
+
+# Credentials (må ALDRIG komme på GitHub)
+config.env
+google_credentials.json
+*.pem
+*.key
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# docs/ er det ENESTE vi ønsker på GitHub — den genererede statiske HTML
+# (docs/ er IKKE ignoreret her, men database og credentials er det)

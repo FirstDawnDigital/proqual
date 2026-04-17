@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd plist til automatisk daglig kørsel af ejendomspipelinen.
+
+  Installation (én gang):
+    cp dk.ejendom.pipeline.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/dk.ejendom.pipeline.plist
+
+  Afinstallation:
+    launchctl unload ~/Library/LaunchAgents/dk.ejendom.pipeline.plist
+    rm ~/Library/LaunchAgents/dk.ejendom.pipeline.plist
+
+  Status / fejlsøgning:
+    launchctl list | grep ejendom
+    cat /Users/server/Documents/ejendompython/data/launchd.log
+    cat /Users/server/Documents/ejendompython/data/launchd_error.log
+-->
+<plist version="1.0">
+<dict>
+
+  <!-- Unikt job-navn -->
+  <key>Label</key>
+  <string>dk.ejendom.pipeline</string>
+
+  <!-- Kommando der køres: fuld pipeline + eksport til Sheets -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/server/Documents/ejendompython/run_pipeline.sh</string>
+  </array>
+
+  <!-- Kør dagligt kl. 07:00 -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>7</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <!-- Arbejdsmappe (så config.env og data/ kan findes relativt) -->
+  <key>WorkingDirectory</key>
+  <string>/Users/server/Documents/ejendompython</string>
+
+  <!-- Log stdout og stderr separat -->
+  <key>StandardOutPath</key>
+  <string>/Users/server/Documents/ejendompython/data/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/server/Documents/ejendompython/data/launchd_error.log</string>
+
+  <!-- Kør ikke hvis Mac'en er slukket/sover – kør ved næste opstart -->
+  <key>RunAtLoad</key>
+  <false/>
+
+</dict>
+</plist>

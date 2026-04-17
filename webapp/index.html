@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ejendomsinvestering</title>
+  <style>
+    :root {
+      --green:  #16a34a;
+      --yellow: #ca8a04;
+      --red:    #dc2626;
+      --blue:   #2563eb;
+      --bg:     #f8fafc;
+      --card:   #ffffff;
+      --border: #e2e8f0;
+      --text:   #1e293b;
+      --muted:  #64748b;
+      --accent: #0f172a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg); color: var(--text); font-size: 14px;
+      display: flex; flex-direction: column; height: 100dvh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--accent); color: #fff;
+      padding: 12px 16px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 15px; font-weight: 700; }
+    #meta-info { font-size: 11px; color: #94a3b8; text-align: right; line-height: 1.5; }
+
+    /* ── Filter panel ── */
+    #filter-panel {
+      background: var(--card); border-bottom: 2px solid var(--border);
+      padding: 12px 16px 10px; flex-shrink: 0;
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 3px; }
+    .filter-group label {
+      font-size: 10px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.6px;
+    }
+    .filter-group input, .filter-group select {
+      padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; background: var(--bg); color: var(--text); width: 100%;
+    }
+    .filter-group input:focus, .filter-group select:focus {
+      outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px #2563eb22;
+    }
+    .filter-bar { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+    #reset-btn {
+      padding: 5px 12px; background: var(--accent); color: #fff;
+      border: none; border-radius: 6px; font-size: 12px; cursor: pointer;
+    }
+    #reset-btn:hover { opacity: 0.82; }
+    #result-count { font-size: 12px; color: var(--muted); }
+
+    /* Status-filter chips */
+    .chip-group { display: flex; gap: 4px; }
+    .chip {
+      padding: 4px 10px; border-radius: 20px; font-size: 12px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+      white-space: nowrap; transition: all .15s;
+    }
+    .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ── Table wrapper ── */
+    #table-wrapper { overflow-x: auto; overflow-y: auto; flex: 1 1 auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 820px; }
+    thead { background: #f1f5f9; position: sticky; top: 0; z-index: 100; }
+    th {
+      padding: 8px 10px; text-align: left;
+      font-size: 10px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap; cursor: pointer; user-select: none;
+    }
+    th:hover { color: var(--text); }
+    th .si { display: inline-block; width: 10px; margin-left: 2px; color: #94a3b8; }
+    th.sort-asc  .si::after { content: "↑"; color: var(--blue); }
+    th.sort-desc .si::after { content: "↓"; color: var(--blue); }
+    th:not(.sort-asc):not(.sort-desc) .si::after { content: "⇅"; }
+
+    td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:hover td { background: #f1f5f9; }
+
+    /* Diskvalificeret — nedtonet */
+    tr.disqualified td { opacity: 0.38; }
+    tr.disqualified .cell-addr a { text-decoration: line-through; color: var(--muted); }
+
+    /* ── Status-knap ── */
+    .status-btn {
+      font-size: 18px; background: none; border: none; cursor: pointer;
+      padding: 2px; border-radius: 4px; line-height: 1;
+      transition: transform .1s;
+    }
+    .status-btn:hover { transform: scale(1.25); }
+    .status-btn[data-status="neutral"]      { opacity: 0.25; }
+    .status-btn[data-status="favorite"]     { opacity: 1; }
+    .status-btn[data-status="disqualified"] { opacity: 1; }
+
+    /* ── Adresse ── */
+    .cell-addr { max-width: 190px; }
+    .cell-addr a {
+      font-weight: 600; font-size: 13px; color: var(--blue);
+      text-decoration: none; display: block; line-height: 1.3;
+    }
+    .cell-addr a:hover { text-decoration: underline; }
+    .cell-addr .loc { font-size: 11px; color: var(--muted); margin-top: 1px; display: block; }
+
+    /* ── Type ── */
+    .cell-type { white-space: nowrap; }
+    .type-icon { font-size: 18px; display: block; line-height: 1; margin-bottom: 2px; }
+    .type-sub  { font-size: 10px; color: var(--muted); line-height: 1.4; }
+
+    /* ── Energi ── */
+    .energy {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 5px;
+      font-size: 11px; font-weight: 800; color: #fff;
+    }
+    .e-A { background: #15803d; } .e-B { background: #65a30d; }
+    .e-C { background: #ca8a04; } .e-D { background: #ea580c; }
+    .e-E { background: #dc2626; } .e-F { background: #9f1239; }
+    .e-G { background: #581c87; }
+
+    /* ── Priser ── */
+    .num { text-align: right; white-space: nowrap; }
+    .price-main { font-weight: 600; font-size: 13px; }
+    .price-sub  { font-size: 11px; color: var(--muted); }
+
+    /* Kontantpris — renoveringsstatus-farver */
+    .price-btn {
+      background: none; border: none; cursor: pointer; padding: 0;
+      font: inherit; text-align: right;
+    }
+    .price-reno-none     .price-main { color: #374151; }
+    .price-reno-progress .price-main { color: var(--blue); }
+    .price-reno-done     .price-main { color: var(--green); }
+    .price-adjusted { font-size: 11px; color: var(--muted); text-decoration: line-through; }
+    .price-renovated { font-size: 12px; font-weight: 700; }
+    .price-reno-progress .price-renovated { color: var(--blue); }
+    .price-reno-done     .price-renovated { color: var(--green); }
+
+    /* ── Est. leje ── */
+    .leje-cell { position: relative; cursor: pointer; }
+    .leje-val  { font-weight: 600; text-decoration: underline dotted var(--muted); }
+    .leje-empty { color: #cbd5e1; }
+
+    /* ── Afkast ── */
+    .yield-high { color: var(--green); font-weight: 700; font-size: 14px; }
+    .yield-mid  { color: var(--yellow); font-weight: 700; font-size: 14px; }
+    .yield-low  { color: var(--red); font-weight: 600; font-size: 14px; }
+    .yield-none { color: #cbd5e1; font-size: 13px; }
+    .yield-thin {
+      color: #94a3b8; font-size: 13px; font-weight: 400;
+      text-decoration: underline dotted #94a3b8; cursor: help;
+    }
+
+    /* ── Afstand ── */
+    .dist-link { font-size: 18px; text-decoration: none; opacity: 0.7; }
+    .dist-link:hover { opacity: 1; }
+
+    /* ── Tooltip ── */
+    .tooltip {
+      display: none; position: fixed; z-index: 9999;
+      background: var(--accent); color: #fff;
+      padding: 10px 13px; border-radius: 8px; font-size: 12px; line-height: 1.7;
+      min-width: 220px; max-width: 280px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3); pointer-events: none;
+    }
+    .tooltip.visible { display: block; }
+    .tooltip-title  { font-weight: 700; margin-bottom: 4px; font-size: 12px; }
+    .tooltip-row    { display: flex; justify-content: space-between; gap: 16px; }
+    .tooltip-row span:last-child { font-weight: 600; }
+    .tooltip-divider { border-top: 1px solid #334155; margin: 6px 0; }
+    .tooltip-warn   { color: #fbbf24; font-size: 11px; margin-top: 4px; }
+
+    /* ── Renoveringsmodal ── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 1000;
+      align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--card); border-radius: 12px;
+      width: 100%; max-width: 520px; max-height: 90vh;
+      overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .modal-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+    }
+    .modal-header h2 { font-size: 15px; font-weight: 700; line-height: 1.3; }
+    .modal-header .addr-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .modal-close {
+      font-size: 20px; background: none; border: none; cursor: pointer;
+      color: var(--muted); flex-shrink: 0; line-height: 1; padding: 2px;
+    }
+    .modal-body { padding: 16px 20px; }
+
+    /* Status-tabs i modal */
+    .reno-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+    .reno-tab {
+      flex: 1; padding: 7px 4px; border-radius: 8px; border: 2px solid var(--border);
+      font-size: 12px; font-weight: 600; cursor: pointer; text-align: center;
+      background: var(--bg); color: var(--muted); transition: all .15s;
+    }
+    .reno-tab.active-none     { border-color: #374151; color: #374151; background: #f1f5f9; }
+    .reno-tab.active-progress { border-color: var(--blue); color: var(--blue); background: #eff6ff; }
+    .reno-tab.active-done     { border-color: var(--green); color: var(--green); background: #f0fdf4; }
+
+    /* Renoverings-poster */
+    .reno-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .reno-item {
+      display: grid; grid-template-columns: 1fr 120px 32px;
+      gap: 6px; align-items: center;
+    }
+    .reno-item input {
+      padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; width: 100%;
+    }
+    .reno-item input:focus { outline: none; border-color: var(--blue); }
+    .reno-item .del-btn {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: #fee2e2; border: none; cursor: pointer;
+      color: var(--red); font-size: 14px; display: flex;
+      align-items: center; justify-content: center;
+    }
+    .add-item-btn {
+      width: 100%; padding: 8px; border: 1px dashed var(--border);
+      border-radius: 8px; background: none; cursor: pointer;
+      color: var(--muted); font-size: 13px; margin-bottom: 16px;
+    }
+    .add-item-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* Renoveringsopsummering */
+    .reno-summary {
+      background: #f8fafc; border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 14px;
+    }
+    .reno-summary-row {
+      display: flex; justify-content: space-between;
+      font-size: 13px; padding: 2px 0;
+    }
+    .reno-summary-row.total { font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
+    .reno-summary-row.yield-row { color: var(--green); font-weight: 700; }
+
+    /* Notes */
+    .reno-notes {
+      margin-top: 12px;
+    }
+    .reno-notes label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+    .reno-notes textarea {
+      width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; font-family: inherit; resize: vertical; min-height: 60px;
+    }
+    .reno-notes textarea:focus { outline: none; border-color: var(--blue); }
+
+    .modal-footer {
+      padding: 12px 20px; border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .btn-save {
+      padding: 8px 20px; background: var(--accent); color: #fff;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-save:hover { opacity: 0.85; }
+    .btn-cancel {
+      padding: 8px 16px; background: var(--bg); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 8px; font-size: 14px; cursor: pointer;
+    }
+
+    /* ── Kortvisning (mobil) ── */
+    #cards-container { display: none; padding: 8px; }
+
+    .prop-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+    }
+    .prop-card.disqualified { opacity: 0.38; }
+    .prop-card.disqualified .card-addr a { text-decoration: line-through; color: var(--muted); }
+
+    .card-top {
+      display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px;
+    }
+    .card-top .status-btn { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+    .card-addr { flex: 1; min-width: 0; }
+    .card-addr a {
+      font-weight: 600; font-size: 14px; color: var(--blue);
+      text-decoration: none; display: block;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .card-addr .loc { font-size: 11px; color: var(--muted); display: block; margin-top: 1px; }
+
+    .card-info {
+      font-size: 12px; color: var(--muted);
+      margin: 2px 0 10px 30px;
+    }
+
+    .card-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 6px; margin-bottom: 10px;
+    }
+    .card-cell {
+      background: var(--bg); border-radius: 8px; padding: 8px 10px;
+    }
+    .card-label {
+      font-size: 10px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px;
+    }
+    .card-val { font-size: 14px; font-weight: 600; }
+    .card-val.price-btn { padding: 0; text-align: left; }
+
+    .card-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: var(--muted);
+      border-top: 1px solid var(--border); padding-top: 8px;
+    }
+
+    @media (max-width: 700px) {
+      #prop-table     { display: none !important; }
+      #cards-container { display: block; }
+    }
+
+    /* ── Loading / empty ── */
+    #loading, #empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .spinner {
+      display: inline-block; width: 28px; height: 28px;
+      border: 3px solid var(--border); border-top-color: var(--blue);
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Mobile filter button ── */
+    .mobile-filter-btn {
+      display: none; align-items: center; gap: 6px;
+      padding: 6px 13px; border-radius: 20px;
+      border: 1.5px solid var(--border); background: var(--bg);
+      font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .mobile-filter-btn.has-filters { border-color: var(--blue); color: var(--blue); background: #eff6ff; }
+    .filter-badge-count {
+      background: var(--blue); color: #fff; border-radius: 10px;
+      font-size: 10px; font-weight: 800; padding: 1px 6px;
+    }
+
+    /* ── Sheet-only elementer (skjult på desktop) ── */
+    .sheet-topbar, .sheet-actions { display: none; }
+
+    /* ── Backdrop ── */
+    #filter-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 599;
+    }
+    #filter-backdrop.open { display: block; }
+
+    /* ── Desktop: lille skærm (tablet) ── */
+    @media (max-width: 900px) {
+      .filter-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+    }
+
+    /* ── Mobil: bottom sheet ── */
+    @media (max-width: 700px) {
+      header h1 { font-size: 13px; }
+
+      /* Kompakt filterpanel – kun baren er synlig */
+      #filter-panel { padding: 8px 12px; }
+
+      /* Skjul desktop-elementerne */
+      .filter-grid { display: none !important; }
+      #reset-btn   { display: none; }
+
+      /* Vis mobilknap */
+      .mobile-filter-btn { display: flex; }
+
+      /* Bottom sheet – ligger fast nede fra bunden */
+      #filter-sheet {
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 600;
+        background: var(--card); border-radius: 18px 18px 0 0;
+        box-shadow: 0 -6px 40px rgba(0,0,0,.18);
+        transform: translateY(100%);
+        transition: transform .3s cubic-bezier(.4,0,.2,1);
+        max-height: 88vh; display: flex; flex-direction: column;
+      }
+      #filter-sheet.open { transform: translateY(0); }
+
+      /* Sheet-header */
+      .sheet-topbar {
+        display: block; flex-shrink: 0;
+        padding: 10px 16px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .sheet-handle {
+        width: 36px; height: 4px; background: #cbd5e1;
+        border-radius: 2px; margin: 0 auto 10px;
+      }
+      .sheet-title-row {
+        display: flex; justify-content: space-between; align-items: center;
+      }
+      .sheet-title-row b { font-size: 15px; }
+      .sheet-close-btn {
+        background: none; border: none; font-size: 20px;
+        cursor: pointer; color: var(--muted); padding: 2px 4px; line-height: 1;
+      }
+
+      /* Grid inde i sheet */
+      #filter-sheet .filter-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px; padding: 16px;
+        overflow-y: auto; flex: 1;
+      }
+
+      /* Sheet-footer */
+      .sheet-actions {
+        display: flex; gap: 8px;
+        padding: 12px 16px 20px;
+        border-top: 1px solid var(--border); flex-shrink: 0;
+      }
+      .sheet-reset-btn {
+        padding: 10px 14px; background: var(--bg); color: var(--muted);
+        border: 1px solid var(--border); border-radius: 8px;
+        font-size: 13px; cursor: pointer;
+      }
+      .sheet-done-btn {
+        flex: 1; padding: 10px; background: var(--accent); color: #fff;
+        border: none; border-radius: 8px; font-size: 14px;
+        font-weight: 700; cursor: pointer;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🏠 Ejendomsinvestering</h1>
+  <div id="meta-info">Indlæser…</div>
+</header>
+
+<div id="filter-panel">
+  <!-- Filter-sheet: desktop = inline grid, mobil = bottom sheet -->
+  <div id="filter-sheet">
+    <!-- Topbar kun synlig på mobil -->
+    <div class="sheet-topbar">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title-row">
+        <b>Filtre</b>
+        <button class="sheet-close-btn" id="sheet-close-btn">✕</button>
+      </div>
+    </div>
+    <!-- Selve filter-inputs -->
+    <div class="filter-grid">
+      <div class="filter-group">
+        <label>Postnummer</label>
+        <input type="text" id="f-zip" placeholder="3300, 4200…">
+      </div>
+      <div class="filter-group">
+        <label>Boligtype</label>
+        <select id="f-type"><option value="">Alle typer</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Maks. pris (kr)</label>
+        <input type="number" id="f-maxprice" placeholder="2.500.000" step="50000">
+      </div>
+      <div class="filter-group">
+        <label>Min. afkast % (m²)</label>
+        <input type="number" id="f-minyield" placeholder="5" step="0.5" min="0" max="30">
+      </div>
+      <div class="filter-group">
+        <label>Min. rum</label>
+        <input type="number" id="f-minrooms" placeholder="1" min="1" max="10">
+      </div>
+      <div class="filter-group">
+        <label>Max. rum</label>
+        <input type="number" id="f-maxrooms" placeholder="10" min="1" max="10">
+      </div>
+      <div class="filter-group">
+        <label>Energimærke (maks.)</label>
+        <select id="f-energy">
+          <option value="">Alle mærker</option>
+          <option value="A">A (kun A)</option>
+          <option value="B">B (A–B)</option>
+          <option value="C">C (A–C)</option>
+          <option value="D" selected>D (A–D)</option>
+          <option value="E">E (A–E)</option>
+          <option value="F">F (A–F)</option>
+          <option value="G">G (alle)</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Maks. køretid</label>
+        <select id="f-maxcommute">
+          <option value="">Alle</option>
+          <option value="30">Max 30 min</option>
+          <option value="45" selected>Max 45 min</option>
+          <option value="60">Max 1 time</option>
+          <option value="90">Max 1,5 time</option>
+          <option value="120">Max 2 timer</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Lejedata (min. n)</label>
+        <select id="f-minn">
+          <option value="0">Alle (inkl. tynde)</option>
+          <option value="5" selected>≥ 5 annoncer</option>
+          <option value="10">≥ 10 annoncer</option>
+          <option value="20">≥ 20 annoncer</option>
+        </select>
+      </div>
+    </div>
+    <!-- Footer kun synlig på mobil -->
+    <div class="sheet-actions">
+      <button class="sheet-reset-btn" id="sheet-reset-btn">Nulstil</button>
+      <button class="sheet-done-btn" id="sheet-done-btn">Vis resultater</button>
+    </div>
+  </div>
+
+  <!-- Altid synlig bar (desktop: under grid, mobil: eneste synlige del) -->
+  <div class="filter-bar">
+    <button class="mobile-filter-btn" id="mobile-filter-btn">⚙️ Filtre</button>
+    <button id="reset-btn">Nulstil</button>
+    <div class="chip-group">
+      <button class="chip active" data-status-filter="all">Alle</button>
+      <button class="chip" data-status-filter="favorite">⭐ Favoritter</button>
+      <button class="chip" data-status-filter="disqualified">❌ Diskvalificerede</button>
+    </div>
+    <span id="result-count"></span>
+  </div>
+</div>
+
+<!-- Backdrop til bottom sheet -->
+<div id="filter-backdrop"></div>
+
+<div id="table-wrapper">
+  <div id="loading"><div class="spinner"></div><br>Henter ejendomsdata…</div>
+  <div id="empty" style="display:none">Ingen boliger matcher filteret.</div>
+  <table id="prop-table" style="display:none">
+    <thead>
+      <tr>
+        <th style="width:36px"></th>
+        <th data-col="address">Adresse <span class="si"></span></th>
+        <th data-col="property_type">Type <span class="si"></span></th>
+        <th data-col="energy_label" style="text-align:center">Energi <span class="si"></span></th>
+        <th data-col="price" class="num">Kontantpris <span class="si"></span></th>
+        <th data-col="owner_costs_monthly" class="num">Ejerudg./md <span class="si"></span></th>
+        <th data-col="sale_kr_per_sqm" class="num">Kr/m² <span class="si"></span></th>
+        <th data-col="est_leje_sqm" class="num">Est. leje/md <span class="si"></span></th>
+        <th data-col="yield_sqm_pct" class="num sort-desc">Afkast% <span class="si"></span></th>
+        <th data-col="commute_minutes" class="num">Køretid <span class="si"></span></th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
+  <div id="cards-container"></div>
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip" class="tooltip"></div>
+
+<!-- Renoveringsmodal -->
+<div id="reno-modal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2 id="modal-title">Renoveringsestimering</h2>
+        <div class="addr-sub" id="modal-addr"></div>
+      </div>
+      <button class="modal-close" id="modal-close-btn">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Status-tabs -->
+      <div class="reno-tabs">
+        <button class="reno-tab" data-reno-status="none">⬜ Ikke estimeret</button>
+        <button class="reno-tab" data-reno-status="progress">🔵 Under beregning</button>
+        <button class="reno-tab" data-reno-status="done">✅ Færdig beregning</button>
+      </div>
+      <!-- Poster -->
+      <div class="reno-items" id="reno-items"></div>
+      <button class="add-item-btn" id="add-item-btn">+ Tilføj renoveringspost</button>
+      <!-- Opsummering -->
+      <div class="reno-summary" id="reno-summary"></div>
+      <!-- Noter -->
+      <div class="reno-notes">
+        <label>Noter</label>
+        <textarea id="reno-notes-input" placeholder="Egne observationer, aftaler, kontakter…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="modal-cancel-btn">Annuller</button>
+      <button class="btn-save" id="modal-save-btn">Gem</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const HOME_ADDRESS = "Egevangen 19, 2700 København, Danmark";
+  const HOME_ENC     = encodeURIComponent(HOME_ADDRESS);
+
+  // ── State ─────────────────────────────────────────────
+  let allData    = [];
+  let annotations = {};   // property_id → annotation obj
+  let sortCol    = "yield_sqm_pct";
+  let sortDir    = "desc";
+  let statusFilter = "all";  // all | favorite | disqualified
+
+  // Modal state
+  let modalPropId   = null;
+  let modalItems    = [];
+  let modalRenoStatus = "none";
+
+  const MIN_N_RELIABLE = 5;
+
+  // ── Formatters ────────────────────────────────────────
+  const fmt  = v => v != null ? new Intl.NumberFormat("da-DK").format(Math.round(v)) : "–";
+  const fmtKr = v => v != null ? fmt(v) + "\u00a0kr" : "–";
+  const fmtPct = v => v != null ? v.toFixed(1) + "%" : null;
+  function fmtDuration(min) {
+    if (min == null) return "–";
+    const m = Math.round(min);
+    if (m < 60) return m + "\u00a0min";
+    return Math.floor(m / 60) + "\u00a0t\u00a0" + (m % 60) + "\u00a0min";
+  }
+  const TYPE_ICON = { villa:"🏠", ejerlejlighed:"🏢", rækkehus:"🏘️", villalejlighed:"🏡", landejendom:"🌾" };
+  const TYPE_DA   = { villa:"Villa", ejerlejlighed:"Ejerlejl.", rækkehus:"Rækkehus", villalejlighed:"Villalejl.", landejendom:"Landejendom" };
+  const STATUS_ICON = { neutral:"⭐", favorite:"⭐", disqualified:"❌" };
+
+  function esc(s) {
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function yieldClass(v, n) {
+    if (v == null)                return "yield-none";
+    if ((n ?? 0) < MIN_N_RELIABLE) return "yield-thin";
+    if (v >= 6) return "yield-high";
+    if (v >= 4) return "yield-mid";
+    return "yield-low";
+  }
+
+  function getAnnotation(id) {
+    return annotations[id] || { status:"neutral", renovation_items:[], renovation_status:"none", notes:"" };
+  }
+
+  function renoTotal(items) {
+    return items.reduce((s, it) => s + (parseFloat(it.cost) || 0), 0);
+  }
+
+  // ── Tooltip ───────────────────────────────────────────
+  const tooltip = document.getElementById("tooltip");
+
+  function buildLejeTooltip(p) {
+    const zip = esc(p.zip_code), n = p.lejedata_antal ?? 0, nRum = p.lejedata_rum_antal ?? 0;
+    let html = `<div class="tooltip-title">📊 Lejedata for ${zip}</div>`;
+    if (p.est_leje_sqm != null) {
+      html += `<div class="tooltip-row"><span>Lav (m²-metode)</span><span>${fmtKr(p.est_leje_sqm_low)}</span></div>`;
+      html += `<div class="tooltip-row"><span>Median</span><span>${fmtKr(p.est_leje_sqm)}</span></div>`;
+      html += `<div class="tooltip-row"><span>Høj</span><span>${fmtKr(p.est_leje_sqm_high)}</span></div>`;
+      const nLabel = n < MIN_N_RELIABLE
+        ? `<span style="color:#fbbf24;font-weight:700">${n} ⚠️ tyndt</span>`
+        : `<span>${n}</span>`;
+      html += `<div class="tooltip-row"><span>Datapunkter</span>${nLabel}</div>`;
+      html += `<div class="tooltip-warn">⚠️ Blandet: alle boligtyper og rum i ${zip}</div>`;
+      if (n < MIN_N_RELIABLE) html += `<div class="tooltip-warn" style="color:#f87171">Usikkert — brug kun som indikation</div>`;
+    } else {
+      html += `<div class="tooltip-warn">Ingen m²-lejedata for ${zip}</div>`;
+    }
+    if (p.est_leje_rooms != null) {
+      html += `<div class="tooltip-divider"></div>`;
+      html += `<div class="tooltip-title">📐 ${p.rooms ?? "?"}-rums (rum-metode)</div>`;
+      html += `<div class="tooltip-row"><span>Lav</span><span>${fmtKr(p.est_leje_rooms_low)}</span></div>`;
+      html += `<div class="tooltip-row"><span>Median</span><span>${fmtKr(p.est_leje_rooms)}</span></div>`;
+      html += `<div class="tooltip-row"><span>Høj</span><span>${fmtKr(p.est_leje_rooms_high)}</span></div>`;
+      html += `<div class="tooltip-row"><span>Datapunkter</span><span>${p.lejedata_rum_antal ?? 0} annoncer</span></div>`;
+    }
+    return html;
+  }
+
+  function showTooltip(e, p) {
+    tooltip.innerHTML = buildLejeTooltip(p);
+    tooltip.classList.add("visible");
+    positionTooltip(e);
+  }
+  function positionTooltip(e) {
+    const pad=12, tw=240, th=tooltip.offsetHeight||200;
+    let x=e.clientX+pad, y=e.clientY-th/2;
+    if (x+tw>window.innerWidth-pad)  x=e.clientX-tw-pad;
+    if (y<pad)                        y=pad;
+    if (y+th>window.innerHeight-pad) y=window.innerHeight-th-pad;
+    tooltip.style.left=x+"px"; tooltip.style.top=y+"px";
+  }
+  document.addEventListener("mousemove", e => { if (tooltip.classList.contains("visible")) positionTooltip(e); });
+  document.addEventListener("click", () => tooltip.classList.remove("visible"));
+
+  // ── Maps ──────────────────────────────────────────────
+  function mapsUrl(addr) {
+    return `https://www.google.com/maps/dir/${HOME_ENC}/${encodeURIComponent(addr + ", Danmark")}`;
+  }
+
+  // ── Load data ─────────────────────────────────────────
+  async function loadData() {
+    try {
+      // Properties + meta er kritiske
+      const [propRes, metaRes] = await Promise.all([
+        fetch("/api/properties"),
+        fetch("/api/meta"),
+      ]);
+      if (!propRes.ok) throw new Error(`/api/properties svarede ${propRes.status}`);
+      if (!metaRes.ok) throw new Error(`/api/meta svarede ${metaRes.status}`);
+
+      allData    = await propRes.json();
+      const meta = await metaRes.json();
+
+      // Annotations er valgfrit — fejl her blokerer ikke siden
+      try {
+        const annRes = await fetch("/api/annotations");
+        if (annRes.ok) annotations = await annRes.json();
+      } catch (e) {
+        console.warn("Annotations endpoint ikke tilgængeligt:", e);
+      }
+
+      const sel = document.getElementById("f-type");
+      meta.property_types.forEach(t => {
+        const o = document.createElement("option");
+        o.value = t; o.textContent = (TYPE_ICON[t]||"") + "  " + (TYPE_DA[t]||t);
+        sel.appendChild(o);
+      });
+      const dt = meta.scraped_at ? meta.scraped_at.slice(0,16).replace("T"," ") : "–";
+      document.getElementById("meta-info").innerHTML =
+        `${meta.total} boliger<br><span style="font-size:10px">Opdateret ${dt}</span>`;
+      document.getElementById("loading").style.display = "none";
+      renderTable();
+    } catch (err) {
+      document.getElementById("loading").innerHTML =
+        `⚠️ Kan ikke nå Flask-serveren.<br>
+         <small style="color:#94a3b8">Fejl: ${esc(err.message)}<br>
+         Tjek at Flask kører: <code>python webapp/app.py</code><br>
+         Åbn siden via <code>http://[ip]:5050</code> — ikke som lokal fil.</small>`;
+    }
+  }
+
+  // ── Save annotation ───────────────────────────────────
+  async function saveAnnotation(id, patch) {
+    const current = getAnnotation(id);
+    const updated = { ...current, ...patch };
+    annotations[id] = updated;
+    await fetch(`/api/annotations/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    });
+  }
+
+  // ── Cycle status ──────────────────────────────────────
+  function cycleStatus(id) {
+    const cur = getAnnotation(id).status;
+    const next = { neutral:"favorite", favorite:"disqualified", disqualified:"neutral" }[cur] || "favorite";
+    saveAnnotation(id, { status: next }).then(() => renderTable());
+  }
+
+  // ── Filter ────────────────────────────────────────────
+  function getFiltered() {
+    const zip      = document.getElementById("f-zip").value.trim();
+    const type     = document.getElementById("f-type").value;
+    const maxPrice = parseFloat(document.getElementById("f-maxprice").value) || Infinity;
+    const minYield = parseFloat(document.getElementById("f-minyield").value) || 0;
+    const minRooms = parseInt(document.getElementById("f-minrooms").value)   || 0;
+    const maxRooms = parseInt(document.getElementById("f-maxrooms").value)   || 99;
+    const minN        = parseInt(document.getElementById("f-minn").value)       || 0;
+    const maxCommute  = parseInt(document.getElementById("f-maxcommute").value) || 0;
+    const energyMax = document.getElementById("f-energy").value;  // "" | A | B | C | D | E | F | G
+    const ENERGY_ORDER = ["A","B","C","D","E","F","G"];
+    const energyAllowed = energyMax
+      ? new Set(ENERGY_ORDER.slice(0, ENERGY_ORDER.indexOf(energyMax) + 1))
+      : null;
+    const zips     = zip ? zip.split(/[\s,]+/).map(s=>s.trim()).filter(Boolean) : [];
+
+    return allData.filter(p => {
+      const ann = getAnnotation(p.id);
+      if (statusFilter === "favorite"     && ann.status !== "favorite")     return false;
+      if (statusFilter === "disqualified" && ann.status !== "disqualified") return false;
+      if (zips.length && !zips.some(z => p.zip_code===z))  return false;
+      if (type && p.property_type !== type)                 return false;
+      if (p.price > maxPrice)                               return false;
+      if (minYield>0 && (p.yield_sqm_pct==null || p.yield_sqm_pct<minYield)) return false;
+      if (p.rooms!=null && p.rooms<minRooms)                return false;
+      if (p.rooms!=null && p.rooms>maxRooms)                return false;
+      if (minN>0 && p.lejedata_antal!=null && p.lejedata_antal<minN) return false;
+      if (energyAllowed && !energyAllowed.has((p.energy_label||"").toUpperCase())) return false;
+      if (maxCommute > 0 && p.commute_minutes != null && p.commute_minutes > maxCommute) return false;
+      return true;
+    });
+  }
+
+  // ── Sort ──────────────────────────────────────────────
+  function getSorted(rows) {
+    return [...rows].sort((a,b) => {
+      let av=a[sortCol], bv=b[sortCol];
+      if (typeof av==="string") av=av.toLowerCase();
+      if (typeof bv==="string") bv=bv.toLowerCase();
+      const nl=(av==null)-(bv==null);
+      if (nl) return nl;
+      if (av<bv) return sortDir==="asc"?-1:1;
+      if (av>bv) return sortDir==="asc"?1:-1;
+      return 0;
+    });
+  }
+
+  // ── Render ────────────────────────────────────────────
+  function renderTable() {
+    const filtered = getFiltered();
+    const sorted   = getSorted(filtered);
+    document.getElementById("result-count").textContent = `${sorted.length} boliger`;
+    if (typeof updateFilterBadge === "function") updateFilterBadge();
+
+    const tbody = document.getElementById("table-body");
+    tbody.innerHTML = "";
+
+    if (sorted.length===0) {
+      document.getElementById("prop-table").style.display="none";
+      document.getElementById("empty").style.display="block";
+      return;
+    }
+    document.getElementById("prop-table").style.display="";
+    document.getElementById("empty").style.display="none";
+
+    sorted.forEach(p => {
+      const ann        = getAnnotation(p.id);
+      const renoStatus = ann.renovation_status || "none";
+      const items      = ann.renovation_items  || [];
+      const total      = renoTotal(items);
+      const adjPrice   = p.price + total;
+
+      // Adresse
+      const addrFull  = p.address || "–";
+      const addrMatch = addrFull.match(/^(.+?),\s*(\d{4}\s+.+)$/);
+      const street    = addrMatch ? addrMatch[1] : addrFull;
+      const addrHtml  = p.listing_url
+        ? `<a href="${esc(p.listing_url)}" target="_blank" rel="noopener">${esc(street)}</a>`
+        : `<span style="font-weight:600;font-size:13px">${esc(street)}</span>`;
+      const loc = [p.zip_code, p.city].filter(Boolean).join("\u00a0");
+
+      // Type
+      const icon    = TYPE_ICON[p.property_type] || "🏠";
+      const typeDA  = TYPE_DA[p.property_type]   || esc(p.property_type||"–");
+      const typeSub = [p.size_sqm!=null?p.size_sqm+"\u00a0m²":"", p.rooms!=null?p.rooms+"\u00a0rum":""].filter(Boolean).join("  ·  ");
+
+      // Energi
+      const eLabel = p.energy_label ? p.energy_label.toUpperCase() : null;
+      const energyHtml = eLabel ? `<span class="energy e-${eLabel}">${eLabel}</span>` : "–";
+
+      // Kontantpris — klikbar, farvekode på renovering
+      let priceInner;
+      if (renoStatus === "none") {
+        priceInner = `<div class="price-main">${fmt(p.price)}\u00a0kr</div>`;
+      } else {
+        priceInner = `<div class="price-adjusted">${fmt(p.price)}\u00a0kr</div>`
+                   + `<div class="price-renovated">${fmt(adjPrice)}\u00a0kr</div>`;
+      }
+      const priceHtml = `<button class="price-btn price-reno-${renoStatus}" data-reno-open="${p.id}" title="Klik for at estimere renovering">${priceInner}</button>`;
+
+      // Ejerudgift
+      const ownerHtml = p.owner_costs_monthly!=null
+        ? `<div class="price-main">${fmt(p.owner_costs_monthly)}\u00a0kr</div>` : `<div class="price-sub">–</div>`;
+
+      // Kr/m²
+      const sqmHtml = p.sale_kr_per_sqm!=null ? `${fmt(p.sale_kr_per_sqm)}\u00a0kr` : "–";
+
+      // Est. leje
+      const lejeHtml = p.est_leje_sqm!=null
+        ? `<span class="leje-val">${fmt(p.est_leje_sqm)}\u00a0kr</span>`
+        : `<span class="leje-empty">–</span>`;
+
+      // Afkast — justeret hvis renovering er beregnet
+      const n    = p.lejedata_antal ?? 0;
+      const thin = p.yield_sqm_pct!=null && n>0 && n<MIN_N_RELIABLE;
+      let yieldPct = p.yield_sqm_pct;
+      if (renoStatus !== "none" && p.est_leje_sqm!=null && adjPrice>0) {
+        yieldPct = Math.round((p.est_leje_sqm*12/adjPrice)*1000)/10;
+      }
+      const yCls   = yieldClass(yieldPct, n);
+      const yTitle = thin ? `title="Usikkert — kun ${n} lejeannonce${n===1?"":"r"} i ${p.zip_code}"` : "";
+      const yTxt   = yieldPct!=null ? (thin ? "~"+yieldPct.toFixed(1)+"%" : yieldPct.toFixed(1)+"%") : "–";
+
+      // Køretid
+      const driveTxt = fmtDuration(p.commute_minutes);
+      const distHtml = `<span style="font-size:12px;color:var(--muted);margin-right:4px">${driveTxt}</span>`
+                     + `<a class="dist-link" href="${mapsUrl(p.address)}" target="_blank" rel="noopener">🗺️</a>`;
+
+      // Status-knap
+      const statusIcon = ann.status==="disqualified" ? "❌" : "⭐";
+      const statusBtn  = `<button class="status-btn" data-status="${ann.status}" data-id="${p.id}" title="${ann.status==="favorite"?"Favorit — klik for diskvalificer":ann.status==="disqualified"?"Diskvalificeret — klik for neutral":"Klik for favorit"}">${statusIcon}</button>`;
+
+      const tr = document.createElement("tr");
+      if (ann.status==="disqualified") tr.classList.add("disqualified");
+
+      tr.innerHTML = `
+        <td style="text-align:center;padding:6px 4px">${statusBtn}</td>
+        <td class="cell-addr">${addrHtml}<span class="loc">${esc(loc)}</span></td>
+        <td class="cell-type"><span class="type-icon" title="${typeDA}">${icon}</span><span class="type-sub">${esc(typeSub)}</span></td>
+        <td style="text-align:center">${energyHtml}</td>
+        <td class="num">${priceHtml}</td>
+        <td class="num">${ownerHtml}</td>
+        <td class="num">${sqmHtml}</td>
+        <td class="num leje-cell">${lejeHtml}</td>
+        <td class="num ${yCls}" ${yTitle}>${yTxt}</td>
+        <td class="num">${distHtml}</td>
+      `;
+
+      // Status klik
+      tr.querySelector(".status-btn").addEventListener("click", e => {
+        e.stopPropagation();
+        cycleStatus(p.id);
+      });
+
+      // Leje tooltip
+      const lejeCell = tr.querySelector(".leje-cell");
+      lejeCell.addEventListener("mouseenter", e => showTooltip(e, p));
+      lejeCell.addEventListener("mouseleave", () => tooltip.classList.remove("visible"));
+      lejeCell.addEventListener("click",      e => { e.stopPropagation(); showTooltip(e, p); });
+
+      // Renoverings-modal åbn
+      tr.querySelector("[data-reno-open]").addEventListener("click", e => {
+        e.stopPropagation();
+        openRenoModal(p);
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    updateSortIndicators();
+    renderCards(sorted);
+  }
+
+  // ── Kortvisning ───────────────────────────────────────
+  function renderCards(sorted) {
+    const container = document.getElementById("cards-container");
+    container.innerHTML = "";
+    sorted.forEach(p => {
+      const ann        = getAnnotation(p.id);
+      const renoStatus = ann.renovation_status || "none";
+      const items      = ann.renovation_items  || [];
+      const total      = renoTotal(items);
+      const adjPrice   = p.price + total;
+
+      // Adresse
+      const addrFull  = p.address || "–";
+      const addrMatch = addrFull.match(/^(.+?),\s*(\d{4}\s+.+)$/);
+      const street    = addrMatch ? addrMatch[1] : addrFull;
+      const loc       = [p.zip_code, p.city].filter(Boolean).join("\u00a0");
+      const addrLink  = p.listing_url
+        ? `<a href="${esc(p.listing_url)}" target="_blank" rel="noopener">${esc(street)}</a>`
+        : `<span style="font-weight:600;font-size:14px">${esc(street)}</span>`;
+
+      // Energi
+      const eLabel    = p.energy_label ? p.energy_label.toUpperCase() : null;
+      const energyHtml = eLabel ? `<span class="energy e-${eLabel}">${eLabel}</span>` : "";
+
+      // Type + størrelse
+      const icon    = TYPE_ICON[p.property_type] || "🏠";
+      const typeSub = [p.size_sqm!=null?p.size_sqm+"\u00a0m²":"", p.rooms!=null?p.rooms+"\u00a0rum":""].filter(Boolean).join("  ·  ");
+
+      // Pris
+      let priceInner;
+      if (renoStatus === "none") {
+        priceInner = `<div class="price-main">${fmt(p.price)}\u00a0kr</div>`;
+      } else {
+        priceInner = `<div class="price-adjusted">${fmt(p.price)}\u00a0kr</div>`
+                   + `<div class="price-renovated">${fmt(adjPrice)}\u00a0kr</div>`;
+      }
+
+      // Afkast
+      const n    = p.lejedata_antal ?? 0;
+      let yieldPct = p.yield_sqm_pct;
+      if (renoStatus !== "none" && p.est_leje_sqm!=null && adjPrice>0) {
+        yieldPct = Math.round((p.est_leje_sqm*12/adjPrice)*1000)/10;
+      }
+      const yCls = yieldClass(yieldPct, n);
+      const thin = yieldPct!=null && n>0 && n<MIN_N_RELIABLE;
+      const yTxt = yieldPct!=null ? (thin?"~"+yieldPct.toFixed(1)+"%":yieldPct.toFixed(1)+"%") : "–";
+
+      // Est. leje
+      const lejeTxt = p.est_leje_sqm!=null ? `<span class="leje-val">${fmt(p.est_leje_sqm)}\u00a0kr</span>` : `<span class="leje-empty">–</span>`;
+
+      // Køretid (kort)
+      const kmTxt = fmtDuration(p.commute_minutes);
+
+      // Status-knap
+      const statusIcon = ann.status==="disqualified" ? "❌" : "⭐";
+      const statusBtn  = `<button class="status-btn" data-status="${ann.status}" data-id="${p.id}">${statusIcon}</button>`;
+
+      const card = document.createElement("div");
+      card.className = "prop-card" + (ann.status==="disqualified" ? " disqualified" : "");
+      card.innerHTML = `
+        <div class="card-top">
+          ${statusBtn}
+          <div class="card-addr">
+            ${addrLink}
+            <span class="loc">${esc(loc)}</span>
+          </div>
+          ${energyHtml}
+        </div>
+        <div class="card-info">${icon} ${esc(typeSub)}</div>
+        <div class="card-grid">
+          <div class="card-cell">
+            <div class="card-label">Kontantpris</div>
+            <button class="price-btn price-reno-${renoStatus} card-val" data-reno-open="${p.id}">${priceInner}</button>
+          </div>
+          <div class="card-cell">
+            <div class="card-label">Afkast%</div>
+            <div class="card-val ${yCls}">${yTxt}</div>
+          </div>
+          <div class="card-cell leje-cell">
+            <div class="card-label">Est. leje/md</div>
+            <div class="card-val">${lejeTxt}</div>
+          </div>
+          <div class="card-cell">
+            <div class="card-label">Køretid</div>
+            <div class="card-val" style="font-size:13px">
+              ${kmTxt}&nbsp;<a class="dist-link" href="${mapsUrl(p.address)}" target="_blank" rel="noopener" style="font-size:16px">🗺️</a>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span>Ejerudg.&nbsp;${fmt(p.owner_costs_monthly)}&nbsp;kr/md</span>
+          <span>${fmt(p.sale_kr_per_sqm)}&nbsp;kr/m²</span>
+        </div>
+      `;
+
+      // Events
+      card.querySelector(".status-btn").addEventListener("click", e => {
+        e.stopPropagation(); cycleStatus(p.id);
+      });
+      card.querySelector("[data-reno-open]").addEventListener("click", e => {
+        e.stopPropagation(); openRenoModal(p);
+      });
+      const lejeCell = card.querySelector(".leje-cell");
+      lejeCell.addEventListener("click", e => { e.stopPropagation(); showTooltip(e, p); });
+
+      container.appendChild(card);
+    });
+  }
+
+  // ── Sort headers ──────────────────────────────────────
+  function updateSortIndicators() {
+    document.querySelectorAll("th[data-col]").forEach(th => {
+      th.classList.remove("sort-asc","sort-desc");
+      if (th.dataset.col===sortCol) th.classList.add(sortDir==="asc"?"sort-asc":"sort-desc");
+    });
+  }
+  document.querySelectorAll("th[data-col]").forEach(th => {
+    th.addEventListener("click", () => {
+      sortDir = sortCol===th.dataset.col ? (sortDir==="asc"?"desc":"asc") : "desc";
+      sortCol = th.dataset.col;
+      renderTable();
+    });
+  });
+
+  // ── Status-filter chips ───────────────────────────────
+  document.querySelectorAll("[data-status-filter]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-status-filter]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      statusFilter = btn.dataset.statusFilter;
+      renderTable();
+    });
+  });
+
+  // ── Filter listeners ──────────────────────────────────
+  ["f-zip","f-type","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-minn","f-energy","f-maxcommute"]
+    .forEach(id => document.getElementById(id).addEventListener("change", () => { renderTable(); updateFilterBadge(); }));
+  ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms"]
+    .forEach(id => document.getElementById(id).addEventListener("input", () => { renderTable(); updateFilterBadge(); }));
+
+  function doReset() {
+    ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms"].forEach(id => { document.getElementById(id).value=""; });
+    document.getElementById("f-type").value="";
+    document.getElementById("f-minn").value="5";
+    document.getElementById("f-energy").value="D";
+    document.getElementById("f-maxcommute").value="45";
+    renderTable();
+    updateFilterBadge();
+  }
+  document.getElementById("reset-btn").addEventListener("click", doReset);
+
+  // ── Mobil bottom sheet ─────────────────────────────────
+  const filterSheet    = document.getElementById("filter-sheet");
+  const filterBackdrop = document.getElementById("filter-backdrop");
+
+  function openFilterSheet() {
+    filterSheet.classList.add("open");
+    filterBackdrop.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeFilterSheet() {
+    filterSheet.classList.remove("open");
+    filterBackdrop.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  document.getElementById("mobile-filter-btn").addEventListener("click", openFilterSheet);
+  document.getElementById("sheet-close-btn").addEventListener("click", closeFilterSheet);
+  document.getElementById("sheet-done-btn").addEventListener("click", closeFilterSheet);
+  filterBackdrop.addEventListener("click", closeFilterSheet);
+  document.getElementById("sheet-reset-btn").addEventListener("click", () => { doReset(); });
+
+  // Filter-badge: tæl aktive filtre (undtagen defaults)
+  function countActiveFilters() {
+    let n = 0;
+    if (document.getElementById("f-zip").value.trim()) n++;
+    if (document.getElementById("f-type").value) n++;
+    if (document.getElementById("f-maxprice").value) n++;
+    if (document.getElementById("f-minyield").value) n++;
+    if (document.getElementById("f-minrooms").value) n++;
+    if (document.getElementById("f-maxrooms").value) n++;
+    const e = document.getElementById("f-energy").value;
+    if (e && e !== "G" && e !== "D") n++;   // D er default, tæller ikke
+    const mn = document.getElementById("f-minn").value;
+    if (mn && mn !== "5") n++;              // 5 er default, tæller ikke
+    const mc = document.getElementById("f-maxcommute").value;
+    if (mc && mc !== "45") n++;             // 45 er default, tæller ikke
+    return n;
+  }
+
+  function updateFilterBadge() {
+    const n    = countActiveFilters();
+    const btn  = document.getElementById("mobile-filter-btn");
+    const done = document.getElementById("sheet-done-btn");
+    const cnt  = document.getElementById("result-count").textContent;
+    if (n > 0) {
+      btn.classList.add("has-filters");
+      btn.innerHTML = `⚙️ Filtre <span class="filter-badge-count">${n}</span>`;
+    } else {
+      btn.classList.remove("has-filters");
+      btn.innerHTML = `⚙️ Filtre`;
+    }
+    if (done) done.textContent = cnt ? `Vis ${cnt}` : "Vis resultater";
+  }
+
+  // ── Renoverings-modal ─────────────────────────────────
+  const modal       = document.getElementById("reno-modal");
+  const modalTitle  = document.getElementById("modal-title");
+  const modalAddr   = document.getElementById("modal-addr");
+  const renoItemsEl = document.getElementById("reno-items");
+  const renoSummary = document.getElementById("reno-summary");
+  const notesInput  = document.getElementById("reno-notes-input");
+
+  let _modalProp = null;
+
+  function openRenoModal(p) {
+    _modalProp      = p;
+    modalPropId     = p.id;
+    const ann       = getAnnotation(p.id);
+    modalItems      = JSON.parse(JSON.stringify(ann.renovation_items || []));
+    modalRenoStatus = ann.renovation_status || "none";
+    notesInput.value = ann.notes || "";
+
+    const addrFull  = p.address || "–";
+    const addrMatch = addrFull.match(/^(.+?),\s*(\d{4}\s+.+)$/);
+    modalTitle.textContent = addrMatch ? addrMatch[1] : addrFull;
+    modalAddr.textContent  = addrMatch ? addrMatch[2] : "";
+
+    renderModalItems();
+    updateRenoTabs();
+    modal.classList.add("open");
+  }
+
+  function closeModal() {
+    modal.classList.remove("open");
+    _modalProp = null;
+  }
+
+  document.getElementById("modal-close-btn").addEventListener("click", closeModal);
+  document.getElementById("modal-cancel-btn").addEventListener("click", closeModal);
+  modal.addEventListener("click", e => { if (e.target===modal) closeModal(); });
+
+  document.getElementById("modal-save-btn").addEventListener("click", async () => {
+    await saveAnnotation(modalPropId, {
+      renovation_items:  modalItems,
+      renovation_status: modalRenoStatus,
+      notes:             notesInput.value,
+    });
+    closeModal();
+    renderTable();
+  });
+
+  // Tabs
+  document.querySelectorAll("[data-reno-status]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      modalRenoStatus = btn.dataset.renoStatus;
+      updateRenoTabs();
+      renderModalSummary();
+    });
+  });
+
+  function updateRenoTabs() {
+    document.querySelectorAll("[data-reno-status]").forEach(btn => {
+      btn.className = "reno-tab" + (btn.dataset.renoStatus===modalRenoStatus ? " active-"+modalRenoStatus : "");
+    });
+  }
+
+  // Tilføj post
+  document.getElementById("add-item-btn").addEventListener("click", () => {
+    modalItems.push({ desc:"", cost:"" });
+    renderModalItems();
+  });
+
+  function renderModalItems() {
+    renoItemsEl.innerHTML = "";
+    modalItems.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "reno-item";
+      row.innerHTML = `
+        <input type="text"   class="desc-inp" placeholder="Beskrivelse (fx tag, varmepumpe)" value="${esc(item.desc)}">
+        <input type="number" class="cost-inp" placeholder="Beløb (kr)" value="${item.cost||""}" step="5000">
+        <button class="del-btn" title="Fjern">✕</button>
+      `;
+      row.querySelector(".desc-inp").addEventListener("input", e => { modalItems[i].desc = e.target.value; renderModalSummary(); });
+      row.querySelector(".cost-inp").addEventListener("input", e => { modalItems[i].cost = parseFloat(e.target.value)||0; renderModalSummary(); });
+      row.querySelector(".del-btn").addEventListener("click",  () => { modalItems.splice(i,1); renderModalItems(); });
+      renoItemsEl.appendChild(row);
+    });
+    renderModalSummary();
+  }
+
+  function renderModalSummary() {
+    if (!_modalProp) return;
+    const p = _modalProp;
+    const total    = renoTotal(modalItems);
+    const adjPrice = p.price + total;
+    const adjYield = p.est_leje_sqm!=null && adjPrice>0
+      ? (p.est_leje_sqm*12/adjPrice*100).toFixed(1) : null;
+    const origYield = p.yield_sqm_pct!=null ? p.yield_sqm_pct.toFixed(1) : "–";
+
+    renoSummary.innerHTML = `
+      <div class="reno-summary-row"><span>Kontantpris</span><span>${fmt(p.price)} kr</span></div>
+      ${modalItems.filter(it=>it.cost>0).map(it =>
+        `<div class="reno-summary-row" style="color:var(--muted)"><span>+ ${esc(it.desc||"Post")}</span><span>${fmt(it.cost)} kr</span></div>`
+      ).join("")}
+      <div class="reno-summary-row total"><span>Justeret pris</span><span>${fmt(adjPrice)} kr</span></div>
+      <div class="reno-summary-row" style="margin-top:6px"><span>Orig. afkast</span><span>${origYield}%</span></div>
+      ${adjYield!=null ? `<div class="reno-summary-row yield-row"><span>Justeret afkast</span><span>${adjYield}%</span></div>` : ""}
+    `;
+  }
+
+  // ── Boot ──────────────────────────────────────────────
+  loadData();
+</script>
+</body>
+</html>
