@@ -10,6 +10,7 @@ venv/
 data/ejendom.db
 data/ejendom.db-shm
 data/ejendom.db-wal
+data/ejendom.db-info
 data/*.log
 
 # Credentials (må ALDRIG komme på GitHub)
