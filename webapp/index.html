@@ -289,8 +289,11 @@
       background: var(--card); border: 1px solid var(--border);
       border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
     }
-    .prop-card.disqualified { opacity: 0.38; }
+    .prop-card.disqualified { opacity: 0.45; padding: 8px 14px; }
     .prop-card.disqualified .card-addr a { text-decoration: line-through; color: var(--muted); }
+    .prop-card.disqualified .card-info,
+    .prop-card.disqualified .card-grid,
+    .prop-card.disqualified .card-footer { display: none; }
 
     .card-top {
       display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px;
@@ -1021,9 +1024,9 @@
             <div class="card-label">Afkast%</div>
             <div class="card-val ${yCls}">${yTxt}</div>
           </div>
-          <div class="card-cell leje-cell">
-            <div class="card-label">Est. leje/md</div>
-            <div class="card-val">${lejeTxt}</div>
+          <div class="card-cell">
+            <div class="card-label">Ejerudg./md</div>
+            <div class="card-val" style="font-size:13px">${fmt(p.owner_costs_monthly) !== "–" ? fmt(p.owner_costs_monthly)+"\u00a0kr" : "–"}</div>
           </div>
           <div class="card-cell">
             <div class="card-label">Køretid</div>
@@ -1033,8 +1036,8 @@
           </div>
         </div>
         <div class="card-footer">
-          <span>Ejerudg.&nbsp;${fmt(p.owner_costs_monthly)}&nbsp;kr/md</span>
-          <span>${fmt(p.sale_kr_per_sqm)}&nbsp;kr/m²</span>
+          <span class="leje-cell" style="cursor:pointer">${lejeTxt}&nbsp;<span style="font-size:10px;color:var(--muted)">est. leje/md</span></span>
+          <span>${fmt(p.sale_kr_per_sqm) !== "–" ? fmt(p.sale_kr_per_sqm)+"\u00a0kr/m²" : "–"}</span>
         </div>
       `;
 
@@ -1046,7 +1049,7 @@
         e.stopPropagation(); openRenoModal(p);
       });
       const lejeCell = card.querySelector(".leje-cell");
-      lejeCell.addEventListener("click", e => { e.stopPropagation(); showTooltip(e, p); });
+      if (lejeCell) lejeCell.addEventListener("click", e => { e.stopPropagation(); showTooltip(e, p); });
 
       container.appendChild(card);
     });
