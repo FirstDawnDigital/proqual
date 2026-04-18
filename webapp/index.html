@@ -164,6 +164,9 @@
     .yield-mid  { color: var(--yellow); font-weight: 700; font-size: 14px; }
     .yield-low  { color: var(--red); font-weight: 600; font-size: 14px; }
     .yield-none { color: #cbd5e1; font-size: 13px; }
+    .leje-tag   { font-size: 9px; font-weight: 700; color: #60a5fa; background: rgba(96,165,250,.15);
+                  border-radius: 3px; padding: 1px 3px; margin-left: 4px; vertical-align: middle;
+                  letter-spacing: .03em; }
     .yield-thin {
       color: #94a3b8; font-size: 13px; font-weight: 400;
       text-decoration: underline dotted #94a3b8; cursor: help;
@@ -803,9 +806,10 @@
     return annotations[id] || { status:"neutral", renovation_items:[], renovation_status:"none", notes:"", custom_leje:null, custom_leje_note:"" };
   }
 
-  // Effektiv månedsleje: bruger manuel override hvis sat, ellers systemets estimat
+  // Effektiv månedsleje: bruger manuel override → V2-model → m²-metode (fallback)
   function effectiveLeje(p, ann) {
-    return (ann.custom_leje && ann.custom_leje > 0) ? ann.custom_leje : p.est_leje_sqm;
+    if (ann.custom_leje && ann.custom_leje > 0) return ann.custom_leje;
+    return p.est_leje_v2 ?? p.est_leje_sqm;
   }
 
   // HTML til lejevisning i tabel/kort
@@ -813,9 +817,12 @@
     if (ann.custom_leje && ann.custom_leje > 0) {
       return `<span class="leje-override">${fmt(ann.custom_leje)}\u00a0kr<span class="leje-override-icon">✏️</span></span>`;
     }
-    return p.est_leje_sqm != null
-      ? `<span class="leje-val">${fmt(p.est_leje_sqm)}\u00a0kr</span>`
-      : `<span class="leje-empty">–</span>`;
+    const leje = p.est_leje_v2 ?? p.est_leje_sqm;
+    if (leje != null) {
+      const tag = p.est_leje_v2 != null ? `<span class="leje-tag">V2</span>` : "";
+      return `<span class="leje-val">${fmt(leje)}\u00a0kr${tag}</span>`;
+    }
+    return `<span class="leje-empty">–</span>`;
   }
 
   function renoTotal(items) {
@@ -826,21 +833,33 @@
   const tooltip = document.getElementById("tooltip");
 
   function buildLejeTooltip(p) {
-    const zip = esc(p.zip_code), n = p.lejedata_antal ?? 0, nRum = p.lejedata_rum_antal ?? 0;
+    const zip = esc(p.zip_code), n = p.lejedata_antal ?? 0;
     let html = `<div class="tooltip-title">📊 Lejedata for ${zip}</div>`;
+
+    // V2-model (primær — vises øverst hvis tilgængelig)
+    if (p.est_leje_v2 != null) {
+      const nV2 = p.lejedata_v2_antal ?? 0;
+      html += `<div class="tooltip-row"><span>⭐ V2-model (grundpris+b×m²)</span><span style="color:#60a5fa;font-weight:700">${fmtKr(p.est_leje_v2)}</span></div>`;
+      html += `<div class="tooltip-row"><span>Datapunkter (V2)</span><span>${nV2} annoncer</span></div>`;
+      html += `<div class="tooltip-warn" style="color:#94a3b8">MAE ~10% — kalibreret 2026-04-18</div>`;
+      html += `<div class="tooltip-divider"></div>`;
+    }
+
+    // m²-metode (sekundær)
     if (p.est_leje_sqm != null) {
-      html += `<div class="tooltip-row"><span>Lav (m²-metode)</span><span>${fmtKr(p.est_leje_sqm_low)}</span></div>`;
+      html += `<div class="tooltip-title" style="font-size:11px;opacity:.7">m²-metode (ældre)</div>`;
+      html += `<div class="tooltip-row"><span>Lav</span><span>${fmtKr(p.est_leje_sqm_low)}</span></div>`;
       html += `<div class="tooltip-row"><span>Median</span><span>${fmtKr(p.est_leje_sqm)}</span></div>`;
       html += `<div class="tooltip-row"><span>Høj</span><span>${fmtKr(p.est_leje_sqm_high)}</span></div>`;
       const nLabel = n < MIN_N_RELIABLE
         ? `<span style="color:#fbbf24;font-weight:700">${n} ⚠️ tyndt</span>`
         : `<span>${n}</span>`;
       html += `<div class="tooltip-row"><span>Datapunkter</span>${nLabel}</div>`;
-      html += `<div class="tooltip-warn">⚠️ Blandet: alle boligtyper og rum i ${zip}</div>`;
-      if (n < MIN_N_RELIABLE) html += `<div class="tooltip-warn" style="color:#f87171">Usikkert — brug kun som indikation</div>`;
     } else {
       html += `<div class="tooltip-warn">Ingen m²-lejedata for ${zip}</div>`;
     }
+
+    // Rum-metode
     if (p.est_leje_rooms != null) {
       html += `<div class="tooltip-divider"></div>`;
       html += `<div class="tooltip-title">📐 ${p.rooms ?? "?"}-rums (rum-metode)</div>`;
@@ -1048,14 +1067,15 @@
 
       // Afkast — bruger effektiv leje + justeret pris ved renovering
       const n    = p.lejedata_antal ?? 0;
-      const thin = !ann.custom_leje && p.yield_sqm_pct!=null && n>0 && n<MIN_N_RELIABLE;
+      const nEff = ann.custom_leje ? 99 : (p.est_leje_v2 != null ? (p.lejedata_v2_antal ?? 99) : n);
+      const thin = !ann.custom_leje && p.est_leje_v2 == null && p.yield_sqm_pct!=null && n>0 && n<MIN_N_RELIABLE;
       let yieldPct;
       if (leje != null && p.price > 0) {
         yieldPct = Math.round((leje * 12 / adjPrice) * 1000) / 10;
       } else {
-        yieldPct = p.yield_sqm_pct;
+        yieldPct = p.yield_v2_pct ?? p.yield_sqm_pct;
       }
-      const yCls   = yieldClass(yieldPct, ann.custom_leje ? 99 : n);
+      const yCls   = yieldClass(yieldPct, nEff);
       const yTitle = thin ? `title="Usikkert — kun ${n} lejeannonce${n===1?"":"r"} i ${p.zip_code}"` : "";
       const yTxt   = yieldPct!=null ? (thin ? "~"+yieldPct.toFixed(1)+"%" : yieldPct.toFixed(1)+"%") : "–";
 
@@ -1148,15 +1168,16 @@
 
       // Afkast (bruger effektiv leje)
       const cardN    = p.lejedata_antal ?? 0;
+      const cardNEff = ann.custom_leje ? 99 : (p.est_leje_v2 != null ? (p.lejedata_v2_antal ?? 99) : cardN);
       const cardLeje = effectiveLeje(p, ann);
       let yieldPct;
       if (cardLeje != null && p.price > 0) {
         yieldPct = Math.round((cardLeje * 12 / adjPrice) * 1000) / 10;
       } else {
-        yieldPct = p.yield_sqm_pct;
+        yieldPct = p.yield_v2_pct ?? p.yield_sqm_pct;
       }
-      const yCls = yieldClass(yieldPct, ann.custom_leje ? 99 : cardN);
-      const thin = !ann.custom_leje && yieldPct!=null && cardN>0 && cardN<MIN_N_RELIABLE;
+      const yCls = yieldClass(yieldPct, cardNEff);
+      const thin = !ann.custom_leje && p.est_leje_v2 == null && yieldPct!=null && cardN>0 && cardN<MIN_N_RELIABLE;
       const yTxt = yieldPct!=null ? (thin?"~"+yieldPct.toFixed(1)+"%":yieldPct.toFixed(1)+"%") : "–";
 
       // Est. leje (bruger manuel override hvis sat)
