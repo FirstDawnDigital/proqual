@@ -650,6 +650,7 @@
       <button class="chip" data-status-filter="favorite">⭐ Favoritter</button>
       <button class="chip" data-status-filter="pinned">📌 Pinned</button>
       <button class="chip" data-status-filter="disqualified">❌ Diskvalificerede</button>
+      <button class="chip" data-status-filter="edited">✏️ Redigerede</button>
     </div>
     <span id="result-count"></span>
   </div>
@@ -1195,6 +1196,15 @@
       if (statusFilter === "favorite"     && ann.status !== "favorite")     return false;
       if (statusFilter === "disqualified" && ann.status !== "disqualified") return false;
       if (statusFilter === "pinned"       && ann.status !== "pinned")       return false;
+      if (statusFilter === "edited") {
+        const hasEdit = ann.status !== "neutral"
+          || (ann.renovation_items && ann.renovation_items.length > 0)
+          || ann.renovation_status !== "none"
+          || (ann.custom_leje && ann.custom_leje > 0)
+          || (ann.custom_price && ann.custom_price > 0)
+          || (ann.notes && ann.notes.trim() !== "");
+        if (!hasEdit) return false;
+      }
 
       // Pinned items bypass alle andre filtre i "alle"-visning
       if (ann.status === "pinned" && statusFilter === "all") return true;
