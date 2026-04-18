@@ -1132,11 +1132,19 @@
     const current = getAnnotation(id);
     const updated = { ...current, ...patch };
     annotations[id] = updated;
-    await apiFetch(`/api/annotations/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated),
-    });
+    try {
+      const res = await apiFetch(`/api/annotations/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("[annotation save] Worker svarede", res.status, body);
+      }
+    } catch (e) {
+      console.error("[annotation save] Netværksfejl:", e);
+    }
   }
 
   // ── Cycle status ──────────────────────────────────────
