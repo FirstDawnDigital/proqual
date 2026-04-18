@@ -597,7 +597,7 @@
         <th data-col="owner_costs_monthly" class="num">Ejerudg./md <span class="si"></span></th>
         <th data-col="sale_kr_per_sqm" class="num">Kr/m² <span class="si"></span></th>
         <th data-col="est_leje_sqm" class="num">Est. leje/md <span class="si"></span></th>
-        <th data-col="yield_sqm_pct" class="num sort-desc">Afkast% <span class="si"></span></th>
+        <th data-col="yield_v2_pct" class="num sort-desc">Afkast% <span class="si"></span></th>
         <th data-col="commute_minutes" class="num">Køretid <span class="si"></span></th>
       </tr>
     </thead>
@@ -762,7 +762,7 @@
   // ── State ─────────────────────────────────────────────
   let allData    = [];
   let annotations = {};   // property_id → annotation obj
-  let sortCol    = "yield_sqm_pct";
+  let sortCol    = "yield_v2_pct";
   let sortDir    = "desc";
   let statusFilter = "all";  // all | favorite | disqualified
 
@@ -977,7 +977,7 @@
       if (zips.length && !zips.some(z => p.zip_code===z))  return false;
       if (type && p.property_type !== type)                 return false;
       if (p.price > maxPrice)                               return false;
-      if (minYield>0 && (p.yield_sqm_pct==null || p.yield_sqm_pct<minYield)) return false;
+      if (minYield>0 && ((p.yield_v2_pct??p.yield_sqm_pct)==null || (p.yield_v2_pct??p.yield_sqm_pct)<minYield)) return false;
       if (p.rooms!=null && p.rooms<minRooms)                return false;
       if (p.rooms!=null && p.rooms>maxRooms)                return false;
       if (minN>0 && p.lejedata_antal!=null && p.lejedata_antal<minN) return false;
