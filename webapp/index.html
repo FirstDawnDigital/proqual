@@ -9,6 +9,7 @@
       --green:  #16a34a;
       --yellow: #ca8a04;
       --red:    #dc2626;
+      --risk:   #92400e;   /* dæmpet rød-brun — bruges til risikomarkering overalt */
       --blue:   #2563eb;
       --bg:     #f8fafc;
       --card:   #ffffff;
@@ -121,6 +122,18 @@
     }
     .cell-addr a:hover { text-decoration: underline; }
     .cell-addr .loc { font-size: 11px; color: var(--muted); margin-top: 1px; display: block; }
+    /* Zip-link i loc: arver loc-størrelse, ikke cell-addr a-størrelse */
+    .cell-addr .loc a { font-size: inherit; font-weight: inherit; color: inherit; }
+    .cell-addr .loc a:hover { text-decoration: underline dotted; }
+
+    /* ── Boligtype multi-select chips ── */
+    .type-chip-group { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
+    .type-chip {
+      padding: 3px 7px; border-radius: 12px; font-size: 11px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+      white-space: nowrap; transition: all .15s; line-height: 1.5;
+    }
+    .type-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     /* ── Type ── */
     .cell-type { white-space: nowrap; }
@@ -158,14 +171,14 @@
 
     /* ── Finansiering ── */
     .fin-laan   { font-weight: 600; font-size: 13px; }
-    .fin-risk   { color: #92400e; }
+    .fin-risk   { color: var(--risk); }
     .fin-ok     { color: #374151; }
     .fin-sub    { font-size: 11px; color: var(--muted); }
     .fin-warn   { font-size: 10px; }
 
     /* ── Cashflow ── */
     .cashflow-pos { color: var(--green); font-weight: 700; font-size: 13px; }
-    .cashflow-neg { color: #b91c1c;   font-weight: 700; font-size: 13px; }
+    .cashflow-neg { color: var(--risk); font-weight: 700; font-size: 13px; }
     .netto-sub    { font-size: 11px; color: var(--muted); }
 
     /* ── Est. leje ── */
@@ -179,7 +192,7 @@
     /* ── Afkast ── */
     .yield-high { color: var(--green); font-weight: 700; font-size: 14px; }
     .yield-mid  { color: var(--yellow); font-weight: 700; font-size: 14px; }
-    .yield-low  { color: #b91c1c; font-weight: 600; font-size: 14px; }
+    .yield-low  { color: var(--risk); font-weight: 600; font-size: 14px; }
     .yield-none { color: #cbd5e1; font-size: 13px; }
     .leje-tag   { font-size: 9px; font-weight: 700; color: #60a5fa; background: rgba(96,165,250,.15);
                   border-radius: 3px; padding: 1px 3px; margin-left: 4px; vertical-align: middle;
@@ -226,10 +239,11 @@
     .modal {
       background: var(--card); border-radius: 12px;
       width: 100%; max-width: 520px; max-height: 90vh;
-      overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      display: flex; flex-direction: column;  /* sticky footer */
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
     }
     .modal-header {
-      padding: 16px 20px 12px;
+      padding: 16px 20px 12px; flex-shrink: 0;
       border-bottom: 1px solid var(--border);
       display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
     }
@@ -239,7 +253,7 @@
       font-size: 20px; background: none; border: none; cursor: pointer;
       color: var(--muted); flex-shrink: 0; line-height: 1; padding: 2px;
     }
-    .modal-body { padding: 16px 20px; }
+    .modal-body { padding: 16px 20px; overflow-y: auto; flex: 1 1 auto; }
 
     /* Status-tabs i modal */
     .reno-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
@@ -330,7 +344,8 @@
     .reno-notes textarea:focus { outline: none; border-color: var(--blue); }
 
     .modal-footer {
-      padding: 12px 20px; border-top: 1px solid var(--border);
+      padding: 12px 20px; flex-shrink: 0;
+      border-top: 1px solid var(--border);
       display: flex; justify-content: flex-end; gap: 8px;
     }
     .btn-save {
@@ -531,9 +546,9 @@
         <label>Postnummer</label>
         <input type="text" id="f-zip" placeholder="3300, 4200…">
       </div>
-      <div class="filter-group">
+      <div class="filter-group" style="grid-column: span 2">
         <label>Boligtype</label>
-        <select id="f-type"><option value="">Alle typer</option></select>
+        <div id="f-type-chips" class="type-chip-group"></div>
       </div>
       <div class="filter-group">
         <label>Maks. pris (kr)</label>
@@ -586,11 +601,20 @@
         <label>Maks. køretid</label>
         <select id="f-maxcommute">
           <option value="">Alle</option>
+          <option value="20">Max 20 min</option>
+          <option value="25">Max 25 min</option>
           <option value="30">Max 30 min</option>
+          <option value="35">Max 35 min</option>
+          <option value="40">Max 40 min</option>
           <option value="45" selected>Max 45 min</option>
-          <option value="60">Max 1 time</option>
-          <option value="90">Max 1,5 time</option>
-          <option value="120">Max 2 timer</option>
+          <option value="50">Max 50 min</option>
+          <option value="55">Max 55 min</option>
+          <option value="60">Max 60 min</option>
+          <option value="70">Max 70 min</option>
+          <option value="80">Max 80 min</option>
+          <option value="90">Max 90 min</option>
+          <option value="105">Max 105 min</option>
+          <option value="120">Max 120 min</option>
         </select>
       </div>
       <div class="filter-group">
@@ -600,13 +624,6 @@
           <option value="5" selected>≥ 5 annoncer</option>
           <option value="10">≥ 10 annoncer</option>
           <option value="20">≥ 20 annoncer</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Villalejligheder</label>
-        <select id="f-villa">
-          <option value="0" selected>Ekskluder</option>
-          <option value="1">Vis</option>
         </select>
       </div>
       <div class="filter-group">
@@ -1083,11 +1100,18 @@
         console.warn("Annotations endpoint ikke tilgængeligt:", e);
       }
 
-      const sel = document.getElementById("f-type");
+      const chipsDiv = document.getElementById("f-type-chips");
       meta.property_types.forEach(t => {
-        const o = document.createElement("option");
-        o.value = t; o.textContent = (TYPE_ICON[t]||"") + "  " + (TYPE_DA[t]||t);
-        sel.appendChild(o);
+        const chip = document.createElement("button");
+        chip.className = "type-chip" + (t !== "villalejlighed" ? " active" : "");
+        chip.dataset.type = t;
+        chip.textContent = (TYPE_ICON[t] || "") + " " + (TYPE_DA[t] || t);
+        chip.addEventListener("click", () => {
+          chip.classList.toggle("active");
+          renderTable();
+          updateFilterBadge();
+        });
+        chipsDiv.appendChild(chip);
       });
       const dt = meta.scraped_at ? meta.scraped_at.slice(0,16).replace("T"," ") : "–";
       document.getElementById("meta-info").innerHTML =
@@ -1123,10 +1147,23 @@
     saveAnnotation(id, { status: next }).then(() => renderTable());
   }
 
+  // ── Type-chips ────────────────────────────────────────
+  function getSelectedTypes() {
+    const all    = document.querySelectorAll(".type-chip");
+    const active = document.querySelectorAll(".type-chip.active");
+    if (!all.length || active.length === all.length) return null; // ingen filtrering
+    return new Set([...active].map(c => c.dataset.type));
+  }
+
+  function resetTypeChips() {
+    document.querySelectorAll(".type-chip").forEach(chip => {
+      chip.classList.toggle("active", chip.dataset.type !== "villalejlighed");
+    });
+  }
+
   // ── Filter ────────────────────────────────────────────
   function getFiltered() {
     const zip      = document.getElementById("f-zip").value.trim();
-    const type     = document.getElementById("f-type").value;
     const maxPrice = parseFloat(document.getElementById("f-maxprice").value) || Infinity;
     const minYield = parseFloat(document.getElementById("f-minyield").value) || 0;
     const minRooms = parseInt(document.getElementById("f-minrooms").value)   || 0;
@@ -1140,7 +1177,7 @@
       : null;
     const zips     = zip ? zip.split(/[\s,]+/).map(s=>s.trim()).filter(Boolean) : [];
 
-    const showVilla = document.getElementById("f-villa").value === "1";
+    const selectedTypes = getSelectedTypes();  // null = alle
     const unregOnly = document.getElementById("f-unreg").value === "1";
 
     return allData.filter(p => {
@@ -1155,9 +1192,8 @@
       if (ann.status === "pinned" && statusFilter === "all") return true;
 
       if (zips.length && !zips.some(z => p.zip_code===z))  return false;
-      if (type && p.property_type !== type)                 return false;
-      // Ekskluder villalejligheder som default (medmindre Vis er valgt eller type er sat specifikt)
-      if (!showVilla && p.property_type === "villalejlighed" && type !== "villalejlighed") return false;
+      // Boligtype multi-select
+      if (selectedTypes && !selectedTypes.has(p.property_type)) return false;
       // Huslejeregler: kun uregulerede
       if (unregOnly && !isUnregulated(p)) return false;
       if (p.price > maxPrice)                               return false;
@@ -1293,15 +1329,19 @@
       const finHtml = `
         <div class="fin-laan ${loanRisk ? 'fin-risk' : 'fin-ok'}">${fmt(Math.round(laan))}\u00a0kr${loanRisk ? ' <span class="fin-warn" style="color:#94a3b8">⚠</span>' : ''}</div>
         <div class="fin-sub">${fmt(udbetaling)}\u00a0kr udbetaling</div>
-        <div class="fin-sub">${fmt(Math.round(ydelse))}\u00a0kr/md ydelse</div>
       `;
 
-      // Drift: ejerudgift + ydelse
+      // Drift: ejerudgift + ydelse (forudberegn cashflow til farvelægning)
       const ejerudgift = p.owner_costs_monthly ?? 0;
       const samlet     = ejerudgift + Math.round(ydelse);
+      const lejeForDrift = effectiveLeje(p, ann);
+      const cashflowForDrift = lejeForDrift != null ? lejeForDrift - ejerudgift - Math.round(ydelse) : null;
+      const driftRisk  = cashflowForDrift != null && cashflowForDrift < 0;
       const driftHtml  = p.owner_costs_monthly != null
-        ? `<div class="price-main">${fmt(samlet)}\u00a0kr</div><div class="price-sub">${fmt(ejerudgift)}\u00a0kr ejerudg.</div>`
-        : `<div class="price-sub">–</div>`;
+        ? `<div class="price-main${driftRisk ? '" style="color:var(--risk)' : ''}">${fmt(samlet)}\u00a0kr</div>` +
+          `<div class="price-sub">${fmt(ejerudgift)}\u00a0kr ejerudg.</div>` +
+          `<div class="price-sub">${fmt(Math.round(ydelse))}\u00a0kr/md ydelse</div>`
+        : `<div class="price-sub">${fmt(Math.round(ydelse))}\u00a0kr/md ydelse</div>`;
 
       // Est. leje + nettoleje + cashflow
       const leje = effectiveLeje(p, ann);
@@ -1544,21 +1584,20 @@
   });
 
   // ── Filter listeners ──────────────────────────────────
-  ["f-zip","f-type","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-minn","f-energy","f-maxcommute","f-yieldtype","f-laantype","f-villa","f-unreg"]
+  ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-minn","f-energy","f-maxcommute","f-yieldtype","f-laantype","f-unreg"]
     .forEach(id => document.getElementById(id).addEventListener("change", () => { renderTable(); updateFilterBadge(); }));
   ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-udbetaling"]
     .forEach(id => document.getElementById(id).addEventListener("input", () => { renderTable(); updateFilterBadge(); }));
 
   function doReset() {
     ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms"].forEach(id => { document.getElementById(id).value=""; });
-    document.getElementById("f-type").value="";
     document.getElementById("f-minn").value="5";
     document.getElementById("f-energy").value="D";
     document.getElementById("f-maxcommute").value="45";
     document.getElementById("f-udbetaling").value="300000";
     document.getElementById("f-yieldtype").value="finansieret";
-    document.getElementById("f-villa").value="0";
     document.getElementById("f-unreg").value="";
+    resetTypeChips();
     renderTable();
     updateFilterBadge();
   }
@@ -1589,7 +1628,8 @@
   function countActiveFilters() {
     let n = 0;
     if (document.getElementById("f-zip").value.trim()) n++;
-    if (document.getElementById("f-type").value) n++;
+    const selTypes = getSelectedTypes();
+    if (selTypes !== null) n++; // chips: null means "alle"
     if (document.getElementById("f-maxprice").value) n++;
     if (document.getElementById("f-minyield").value) n++;
     if (document.getElementById("f-minrooms").value) n++;
@@ -1830,6 +1870,13 @@
 
   // Tilføj post
   document.getElementById("add-item-btn").addEventListener("click", () => {
+    // Sæt automatisk "Under beregning" når første post tilføjes
+    if (modalItems.length === 0 && modalRenoStatus === "none") {
+      modalRenoStatus = "progress";
+      document.querySelectorAll(".reno-status-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.status === "progress");
+      });
+    }
     modalItems.push({ desc:"", cost:"" });
     renderModalItems();
   });
