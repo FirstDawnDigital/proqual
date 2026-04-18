@@ -138,7 +138,7 @@
     .price-main { font-weight: 600; font-size: 13px; }
     .price-sub  { font-size: 11px; color: var(--muted); }
 
-    /* Kontantpris — renoveringsstatus-farver */
+    /* Totalpris — renoveringsstatus-farver */
     .price-btn {
       background: none; border: none; cursor: pointer; padding: 0;
       font: inherit; text-align: right;
@@ -147,9 +147,21 @@
     .price-reno-progress .price-main { color: var(--blue); }
     .price-reno-done     .price-main { color: var(--green); }
     .price-adjusted { font-size: 11px; color: var(--muted); text-decoration: line-through; }
-    .price-renovated { font-size: 12px; font-weight: 700; }
+    .price-renovated { font-size: 13px; font-weight: 700; }
     .price-reno-progress .price-renovated { color: var(--blue); }
     .price-reno-done     .price-renovated { color: var(--green); }
+
+    /* ── Finansiering ── */
+    .fin-laan   { font-weight: 600; font-size: 13px; }
+    .fin-risk   { color: #92400e; }
+    .fin-ok     { color: #374151; }
+    .fin-sub    { font-size: 11px; color: var(--muted); }
+    .fin-warn   { font-size: 10px; }
+
+    /* ── Cashflow ── */
+    .cashflow-pos { color: var(--green); font-weight: 700; font-size: 13px; }
+    .cashflow-neg { color: var(--red);   font-weight: 700; font-size: 13px; }
+    .netto-sub    { font-size: 11px; color: var(--muted); }
 
     /* ── Est. leje ── */
     .leje-cell { position: relative; cursor: pointer; }
@@ -515,8 +527,26 @@
         <input type="number" id="f-maxprice" placeholder="2.500.000" step="50000">
       </div>
       <div class="filter-group">
-        <label>Min. afkast % (m²)</label>
+        <label>Min. afkast %</label>
         <input type="number" id="f-minyield" placeholder="5" step="0.5" min="0" max="30">
+      </div>
+      <div class="filter-group">
+        <label>Udbetaling (kr)</label>
+        <input type="number" id="f-udbetaling" value="300000" step="25000" min="0">
+      </div>
+      <div class="filter-group">
+        <label>Afkasttype</label>
+        <select id="f-yieldtype">
+          <option value="finansieret" selected>Finansieret</option>
+          <option value="teoretisk">Teoretisk (brutto)</option>
+          <option value="kontant">Afkast på kontantindsats</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Lånetype</label>
+        <select id="f-laantype">
+          <option value="realkredit">Realkredit 4%</option>
+        </select>
       </div>
       <div class="filter-group">
         <label>Min. rum</label>
@@ -593,9 +623,9 @@
         <th data-col="address">Adresse <span class="si"></span></th>
         <th data-col="property_type">Type <span class="si"></span></th>
         <th data-col="energy_label" style="text-align:center">Energi <span class="si"></span></th>
-        <th data-col="price" class="num">Kontantpris <span class="si"></span></th>
-        <th data-col="owner_costs_monthly" class="num">Ejerudg./md <span class="si"></span></th>
-        <th data-col="sale_kr_per_sqm" class="num">Kr/m² <span class="si"></span></th>
+        <th data-col="price" class="num">Totalpris <span class="si"></span></th>
+        <th class="num">Finansiering</th>
+        <th data-col="owner_costs_monthly" class="num">Drift <span class="si"></span></th>
         <th data-col="est_leje_sqm" class="num">Est. leje/md <span class="si"></span></th>
         <th data-col="yield_v2_pct" class="num sort-desc">Afkast% <span class="si"></span></th>
         <th data-col="commute_minutes" class="num">Køretid <span class="si"></span></th>
@@ -829,6 +859,37 @@
     return items.reduce((s, it) => s + (parseFloat(it.cost) || 0), 0);
   }
 
+  function getUdbetaling() {
+    return parseFloat(document.getElementById("f-udbetaling").value) || 300000;
+  }
+  function getYieldType() {
+    return document.getElementById("f-yieldtype").value || "finansieret";
+  }
+
+  // Låneberegning: realkredit-model
+  // Etablering = 9.000 kr + 1,5% af lånebeløb
+  // Månedlig ydelse = (lån + etablering) × 0,0041
+  function computeLoan(totalpris, udbetaling) {
+    const laan       = Math.max(0, totalpris - udbetaling);
+    const etablering = 9000 + 0.015 * laan;
+    const ydelse     = (laan + etablering) * 0.0041;
+    const ratio      = totalpris > 0 ? laan / totalpris : 0;
+    return { laan, ydelse, ratio };
+  }
+
+  // Beregn afkast baseret på valgt afkasttype
+  function computeDisplayYield(type, leje, ejerudgift, ydelse, adjPrice, udbetaling, p) {
+    if (type === "teoretisk") {
+      if (leje != null && adjPrice > 0) return Math.round(leje * 12 / adjPrice * 1000) / 10;
+      return p.yield_v2_pct ?? p.yield_sqm_pct;
+    }
+    if (leje == null) return null;
+    const cashflow = leje - ejerudgift - ydelse;
+    if (type === "finansieret") return adjPrice > 0 ? Math.round(cashflow * 12 / adjPrice * 1000) / 10 : null;
+    if (type === "kontant")     return udbetaling > 0 ? Math.round(cashflow * 12 / udbetaling * 1000) / 10 : null;
+    return null;
+  }
+
   // ── Tooltip ───────────────────────────────────────────
   const tooltip = document.getElementById("tooltip");
 
@@ -868,6 +929,47 @@
       html += `<div class="tooltip-row"><span>Høj</span><span>${fmtKr(p.est_leje_rooms_high)}</span></div>`;
       html += `<div class="tooltip-row"><span>Datapunkter</span><span>${p.lejedata_rum_antal ?? 0} annoncer</span></div>`;
     }
+    return html;
+  }
+
+  function buildYieldTooltip(p, ann, adjPrice, leje, ejerudgift, ydelse, udbetaling, yieldType, yieldPct) {
+    const TYPE_LABEL = {
+      finansieret: "💰 Finansieret afkast",
+      teoretisk:   "📊 Teoretisk afkast (brutto)",
+      kontant:     "💵 Afkast på kontantindsats",
+    };
+    const TYPE_FORMULA = {
+      finansieret: "Cashflow × 12 ÷ totalpris",
+      teoretisk:   "Est. leje × 12 ÷ totalpris",
+      kontant:     "Cashflow × 12 ÷ udbetaling",
+    };
+    let html = `<div class="tooltip-title">${TYPE_LABEL[yieldType] || yieldType}</div>`;
+    html += `<div class="tooltip-warn" style="color:#94a3b8;margin-bottom:4px">${TYPE_FORMULA[yieldType]}</div>`;
+    html += `<div class="tooltip-divider"></div>`;
+
+    if (yieldType === "teoretisk") {
+      html += `<div class="tooltip-row"><span>Est. leje/md</span><span>${fmtKr(leje)}</span></div>`;
+      html += `<div class="tooltip-row"><span>Totalpris</span><span>${fmtKr(adjPrice)}</span></div>`;
+    } else {
+      const nettoleje = leje != null ? leje - ejerudgift : null;
+      const cashflow  = nettoleje != null ? nettoleje - ydelse : null;
+      html += `<div class="tooltip-row"><span>Est. leje/md</span><span>${fmtKr(leje)}</span></div>`;
+      html += `<div class="tooltip-row"><span>− Ejerudgift</span><span>${fmtKr(ejerudgift)}</span></div>`;
+      html += `<div class="tooltip-row"><span>= Nettoleje</span><span style="font-weight:600">${fmtKr(nettoleje != null ? Math.round(nettoleje) : null)}</span></div>`;
+      html += `<div class="tooltip-row"><span>− Ydelse (lån)</span><span>${fmtKr(Math.round(ydelse))}</span></div>`;
+      const cfSign = cashflow != null && cashflow >= 0 ? "+" : "";
+      const cfCol  = cashflow != null ? (cashflow >= 0 ? "#4ade80" : "#f87171") : "#cbd5e1";
+      html += `<div class="tooltip-row"><span>= Cashflow</span><span style="font-weight:700;color:${cfCol}">${cfSign}${fmtKr(cashflow != null ? Math.round(cashflow) : null)}</span></div>`;
+      html += `<div class="tooltip-divider"></div>`;
+      if (yieldType === "finansieret") {
+        html += `<div class="tooltip-row"><span>Totalpris</span><span>${fmtKr(adjPrice)}</span></div>`;
+      } else {
+        html += `<div class="tooltip-row"><span>Udbetaling</span><span>${fmtKr(udbetaling)}</span></div>`;
+      }
+    }
+    html += `<div class="tooltip-divider"></div>`;
+    const yCol = yieldPct == null ? "#cbd5e1" : yieldPct >= 6 ? "#4ade80" : yieldPct >= 4 ? "#fbbf24" : "#f87171";
+    html += `<div class="tooltip-row"><span style="font-weight:700">Afkast</span><span style="font-weight:800;color:${yCol}">${yieldPct != null ? yieldPct.toFixed(1)+"%" : "–"}</span></div>`;
     return html;
   }
 
@@ -977,7 +1079,15 @@
       if (zips.length && !zips.some(z => p.zip_code===z))  return false;
       if (type && p.property_type !== type)                 return false;
       if (p.price > maxPrice)                               return false;
-      if (minYield>0 && ((p.yield_v2_pct??p.yield_sqm_pct)==null || (p.yield_v2_pct??p.yield_sqm_pct)<minYield)) return false;
+      if (minYield>0) {
+        const ann2 = getAnnotation(p.id);
+        const adj2 = p.price + renoTotal(ann2.renovation_items || []);
+        const leje2 = effectiveLeje(p, ann2);
+        const ud2 = getUdbetaling();
+        const { ydelse: y2 } = computeLoan(adj2, ud2);
+        const fy = computeDisplayYield(getYieldType(), leje2, p.owner_costs_monthly ?? 0, y2, adj2, ud2, p);
+        if (fy == null || fy < minYield) return false;
+      }
       if (p.rooms!=null && p.rooms<minRooms)                return false;
       if (p.rooms!=null && p.rooms>maxRooms)                return false;
       const effN = p.est_leje_v2 != null ? (p.lejedata_v2_antal ?? 0) : (p.lejedata_antal ?? 0);
@@ -989,9 +1099,25 @@
   }
 
   // ── Sort ──────────────────────────────────────────────
+  function _sortYield(p) {
+    const ann      = getAnnotation(p.id);
+    const items    = ann.renovation_items || [];
+    const adjPrice = p.price + renoTotal(items);
+    const leje     = effectiveLeje(p, ann);
+    const ud       = getUdbetaling();
+    const { ydelse } = computeLoan(adjPrice, ud);
+    const ejerudgift = p.owner_costs_monthly ?? 0;
+    return computeDisplayYield(getYieldType(), leje, ejerudgift, ydelse, adjPrice, ud, p);
+  }
+
   function getSorted(rows) {
     return [...rows].sort((a,b) => {
-      let av=a[sortCol], bv=b[sortCol];
+      let av, bv;
+      if (sortCol === "yield_v2_pct") {
+        av = _sortYield(a); bv = _sortYield(b);
+      } else {
+        av=a[sortCol]; bv=b[sortCol];
+      }
       if (typeof av==="string") av=av.toLowerCase();
       if (typeof bv==="string") bv=bv.toLowerCase();
       const nl=(av==null)-(bv==null);
@@ -1045,41 +1171,58 @@
       const eLabel = p.energy_label ? p.energy_label.toUpperCase() : null;
       const energyHtml = eLabel ? `<span class="energy e-${eLabel}">${eLabel}</span>` : "–";
 
-      // Kontantpris — klikbar, farvekode på renovering
+      // Finansiering
+      const udbetaling = getUdbetaling();
+      const { laan, ydelse, ratio } = computeLoan(adjPrice, udbetaling);
+      const loanRisk = ratio > 0.80;
+
+      // Totalpris — klikbar, farvekode på renovering, kr/m² udtonet nedenunder
+      const sqmPris = adjPrice > 0 && p.size_sqm > 0 ? Math.round(adjPrice / p.size_sqm) : null;
       let priceInner;
-      if (renoStatus === "none") {
-        priceInner = `<div class="price-main">${fmt(p.price)}\u00a0kr</div>`;
-      } else {
+      if (total > 0) {
         priceInner = `<div class="price-adjusted">${fmt(p.price)}\u00a0kr</div>`
                    + `<div class="price-renovated">${fmt(adjPrice)}\u00a0kr</div>`;
+      } else {
+        priceInner = `<div class="price-main">${fmt(p.price)}\u00a0kr</div>`;
       }
+      if (sqmPris) priceInner += `<div class="price-sub">${fmt(sqmPris)}\u00a0kr/m²</div>`;
       const priceHtml = `<button class="price-btn price-reno-${renoStatus}" data-reno-open="${p.id}" title="Klik for at estimere renovering">${priceInner}</button>`;
 
-      // Ejerudgift
-      const ownerHtml = p.owner_costs_monthly!=null
-        ? `<div class="price-main">${fmt(p.owner_costs_monthly)}\u00a0kr</div>` : `<div class="price-sub">–</div>`;
+      // Finansieringskolonne
+      const finHtml = `
+        <div class="fin-laan ${loanRisk ? 'fin-risk' : 'fin-ok'}">${fmt(Math.round(laan))}\u00a0kr${loanRisk ? ' <span class="fin-warn" style="color:#94a3b8">⚠</span>' : ''}</div>
+        <div class="fin-sub">${fmt(udbetaling)}\u00a0kr udbetaling</div>
+        <div class="fin-sub">${fmt(Math.round(ydelse))}\u00a0kr/md ydelse</div>
+      `;
 
-      // Kr/m²
-      const sqmHtml = p.sale_kr_per_sqm!=null ? `${fmt(p.sale_kr_per_sqm)}\u00a0kr` : "–";
+      // Drift: ejerudgift + ydelse
+      const ejerudgift = p.owner_costs_monthly ?? 0;
+      const samlet     = ejerudgift + Math.round(ydelse);
+      const driftHtml  = p.owner_costs_monthly != null
+        ? `<div class="price-main">${fmt(samlet)}\u00a0kr</div><div class="price-sub">${fmt(ejerudgift)}\u00a0kr ejerudg.</div>`
+        : `<div class="price-sub">–</div>`;
 
-      // Est. leje (bruger manuel override hvis sat)
+      // Est. leje + nettoleje + cashflow
       const leje = effectiveLeje(p, ann);
       const _lejeHtml = lejeHtml(p, ann);
+      const nettoleje = leje != null ? leje - ejerudgift : null;
+      const cashflow  = nettoleje != null ? nettoleje - ydelse : null;
+      const cfSign    = cashflow != null && cashflow >= 0 ? "+" : "";
+      const cfCls     = cashflow != null ? (cashflow >= 0 ? "cashflow-pos" : "cashflow-neg") : "";
+      const cfHtml    = cashflow != null
+        ? `<div class="${cfCls}">${cfSign}${fmt(Math.round(cashflow))}\u00a0kr/md</div>
+           <div class="netto-sub">${fmt(Math.round(nettoleje))}\u00a0kr netto</div>`
+        : "";
 
-      // Afkast — bruger effektiv leje + justeret pris ved renovering
+      // Afkast — baseret på valgt afkasttype
       const n    = p.lejedata_antal ?? 0;
-      // V2: brug zip-specifik N; national fallback (lejedata_v2_antal=0) vises grå
       const nEff = ann.custom_leje ? 99 : (p.est_leje_v2 != null ? (p.lejedata_v2_antal ?? 0) : n);
       const thin = !ann.custom_leje && p.est_leje_v2 == null && p.yield_sqm_pct!=null && n>0 && n<MIN_N_RELIABLE;
-      let yieldPct;
-      if (leje != null && p.price > 0) {
-        yieldPct = Math.round((leje * 12 / adjPrice) * 1000) / 10;
-      } else {
-        yieldPct = p.yield_v2_pct ?? p.yield_sqm_pct;
-      }
-      const yCls   = yieldClass(yieldPct, nEff);
-      const yTitle = thin ? `title="Usikkert — kun ${n} lejeannonce${n===1?"":"r"} i ${p.zip_code}"` : "";
-      const yTxt   = yieldPct!=null ? (thin ? "~"+yieldPct.toFixed(1)+"%" : yieldPct.toFixed(1)+"%") : "–";
+      const yieldType = getYieldType();
+      const yieldPct  = computeDisplayYield(yieldType, leje, ejerudgift, ydelse, adjPrice, udbetaling, p);
+      const yCls      = yieldClass(yieldPct, nEff);
+      // yTitle udgået — tooltip håndteres via mouseenter
+      const yTxt      = yieldPct!=null ? (thin ? "~"+yieldPct.toFixed(1)+"%" : yieldPct.toFixed(1)+"%") : "–";
 
       // Køretid
       const driveTxt = fmtDuration(p.commute_minutes);
@@ -1099,10 +1242,10 @@
         <td class="cell-type"><span class="type-icon" title="${typeDA}">${icon}</span><span class="type-sub">${esc(typeSub)}</span></td>
         <td style="text-align:center">${energyHtml}</td>
         <td class="num">${priceHtml}</td>
-        <td class="num">${ownerHtml}</td>
-        <td class="num">${sqmHtml}</td>
-        <td class="num leje-cell">${_lejeHtml}</td>
-        <td class="num ${yCls}" ${yTitle}>${yTxt}</td>
+        <td class="num">${finHtml}</td>
+        <td class="num">${driftHtml}</td>
+        <td class="num leje-cell">${_lejeHtml}${cfHtml}</td>
+        <td class="num yield-cell ${yCls}" style="cursor:help">${yTxt}</td>
         <td class="num">${distHtml}</td>
       `;
 
@@ -1117,6 +1260,15 @@
       lejeCell.addEventListener("mouseenter", e => showTooltip(e, p));
       lejeCell.addEventListener("mouseleave", () => tooltip.classList.remove("visible"));
       lejeCell.addEventListener("click",      e => { e.stopPropagation(); tooltip.classList.remove("visible"); openLejeModal(p); });
+
+      // Afkast: hover = tooltip med beregning
+      const yieldCell = tr.querySelector(".yield-cell");
+      yieldCell.addEventListener("mouseenter", e => {
+        tooltip.innerHTML = buildYieldTooltip(p, ann, adjPrice, leje, ejerudgift, ydelse, udbetaling, yieldType, yieldPct);
+        tooltip.classList.add("visible");
+        positionTooltip(e);
+      });
+      yieldCell.addEventListener("mouseleave", () => tooltip.classList.remove("visible"));
 
       // Renoverings-modal åbn
       tr.querySelector("[data-reno-open]").addEventListener("click", e => {
@@ -1270,9 +1422,9 @@
   });
 
   // ── Filter listeners ──────────────────────────────────
-  ["f-zip","f-type","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-minn","f-energy","f-maxcommute"]
+  ["f-zip","f-type","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-minn","f-energy","f-maxcommute","f-yieldtype","f-laantype"]
     .forEach(id => document.getElementById(id).addEventListener("change", () => { renderTable(); updateFilterBadge(); }));
-  ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms"]
+  ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-udbetaling"]
     .forEach(id => document.getElementById(id).addEventListener("input", () => { renderTable(); updateFilterBadge(); }));
 
   function doReset() {
@@ -1281,6 +1433,8 @@
     document.getElementById("f-minn").value="5";
     document.getElementById("f-energy").value="D";
     document.getElementById("f-maxcommute").value="45";
+    document.getElementById("f-udbetaling").value="300000";
+    document.getElementById("f-yieldtype").value="finansieret";
     renderTable();
     updateFilterBadge();
   }
