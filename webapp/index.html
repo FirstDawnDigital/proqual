@@ -1068,8 +1068,8 @@
 
       // Afkast — bruger effektiv leje + justeret pris ved renovering
       const n    = p.lejedata_antal ?? 0;
-      // V2: national fallback (lejedata_v2_antal=0) behandles som pålidelig (99)
-      const nEff = ann.custom_leje ? 99 : (p.est_leje_v2 != null ? (p.lejedata_v2_antal > 0 ? p.lejedata_v2_antal : 99) : n);
+      // V2: brug zip-specifik N; national fallback (lejedata_v2_antal=0) vises grå
+      const nEff = ann.custom_leje ? 99 : (p.est_leje_v2 != null ? (p.lejedata_v2_antal ?? 0) : n);
       const thin = !ann.custom_leje && p.est_leje_v2 == null && p.yield_sqm_pct!=null && n>0 && n<MIN_N_RELIABLE;
       let yieldPct;
       if (leje != null && p.price > 0) {
@@ -1170,7 +1170,7 @@
 
       // Afkast (bruger effektiv leje)
       const cardN    = p.lejedata_antal ?? 0;
-      const cardNEff = ann.custom_leje ? 99 : (p.est_leje_v2 != null ? (p.lejedata_v2_antal > 0 ? p.lejedata_v2_antal : 99) : cardN);
+      const cardNEff = ann.custom_leje ? 99 : (p.est_leje_v2 != null ? (p.lejedata_v2_antal ?? 0) : cardN);
       const cardLeje = effectiveLeje(p, ann);
       let yieldPct;
       if (cardLeje != null && p.price > 0) {
