@@ -6,8 +6,8 @@
   <title>Ejendomsinvestering</title>
   <style>
     :root {
-      --green:  #16a34a;
-      --yellow: #ca8a04;
+      --green:  #15803d;   /* green-700 — dæmpet (var #16a34a) */
+      --yellow: #ca8a04;   /* amber-600 */
       --red:    #dc2626;
       --risk:   #92400e;   /* dæmpet rød-brun — bruges til risikomarkering overalt */
       --blue:   #2563eb;
@@ -122,8 +122,8 @@
     }
     .cell-addr a:hover { text-decoration: underline; }
     .cell-addr .loc { font-size: 11px; color: var(--muted); margin-top: 1px; display: block; }
-    /* Zip-link i loc: arver loc-størrelse, ikke cell-addr a-størrelse */
-    .cell-addr .loc a { font-size: inherit; font-weight: inherit; color: inherit; }
+    /* Zip-link i loc: inline (ikke block) + arver loc-størrelse */
+    .cell-addr .loc a { display: inline; font-size: inherit; font-weight: inherit; color: inherit; }
     .cell-addr .loc a:hover { text-decoration: underline dotted; }
 
     /* ── Boligtype multi-select chips ── */
@@ -1042,7 +1042,7 @@
       html += `<div class="tooltip-row"><span>= Nettoleje</span><span style="font-weight:600">${fmtKr(nettoleje != null ? Math.round(nettoleje) : null)}</span></div>`;
       html += `<div class="tooltip-row"><span>− Ydelse (lån)</span><span>${fmtKr(Math.round(ydelse))}</span></div>`;
       const cfSign = cashflow != null && cashflow >= 0 ? "+" : "";
-      const cfCol  = cashflow != null ? (cashflow >= 0 ? "#4ade80" : "#f87171") : "#cbd5e1";
+      const cfCol  = cashflow != null ? (cashflow >= 0 ? "#15803d" : "#92400e") : "#cbd5e1";
       html += `<div class="tooltip-row"><span>= Cashflow</span><span style="font-weight:700;color:${cfCol}">${cfSign}${fmtKr(cashflow != null ? Math.round(cashflow) : null)}</span></div>`;
       html += `<div class="tooltip-divider"></div>`;
       if (yieldType === "finansieret") {
@@ -1052,7 +1052,7 @@
       }
     }
     html += `<div class="tooltip-divider"></div>`;
-    const yCol = yieldPct == null ? "#cbd5e1" : yieldPct >= 6 ? "#4ade80" : yieldPct >= 4 ? "#fbbf24" : "#f87171";
+    const yCol = yieldPct == null ? "#cbd5e1" : yieldPct >= 6 ? "#15803d" : yieldPct >= 4 ? "#ca8a04" : "#92400e";
     html += `<div class="tooltip-row"><span style="font-weight:700">Afkast</span><span style="font-weight:800;color:${yCol}">${yieldPct != null ? yieldPct.toFixed(1)+"%" : "–"}</span></div>`;
     return html;
   }
