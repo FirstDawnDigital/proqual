@@ -1516,6 +1516,18 @@
       // Est. leje (bruger manuel override hvis sat)
       const lejeTxt = lejeHtml(p, ann);
 
+      // Drift + cashflow til kort
+      const cardUd       = getUdbetaling();
+      const { ydelse: cardYdelse } = computeLoan(adjPrice, cardUd);
+      const cardEjerudgift = p.owner_costs_monthly ?? 0;
+      const cardDriftSamlet = cardEjerudgift + Math.round(cardYdelse);
+      const cardCashflow  = cardLeje != null ? cardLeje - cardEjerudgift - Math.round(cardYdelse) : null;
+      const cardDriftRisk = cardCashflow != null && cardCashflow < 0;
+      const cardDriftTxt  = p.owner_costs_monthly != null ? `${fmt(cardDriftSamlet)}\u00a0kr` : "–";
+      const cardCfSign    = cardCashflow != null && cardCashflow >= 0 ? "+" : "";
+      const cardCfCls     = cardCashflow != null ? (cardCashflow >= 0 ? "cashflow-pos" : "cashflow-neg") : "";
+      const cardCfTxt     = cardCashflow != null ? `${cardCfSign}${fmt(Math.round(cardCashflow))}\u00a0kr/md` : "–";
+
       // Køretid (kort)
       const kmTxt = fmtDuration(p.commute_minutes);
 
@@ -1538,7 +1550,7 @@
         <div class="card-info">${icon} ${esc(typeSub)}</div>
         <div class="card-grid">
           <div class="card-cell">
-            <div class="card-label">Kontantpris</div>
+            <div class="card-label">Totalpris</div>
             <button class="price-btn price-reno-${renoStatus} card-val" data-reno-open="${p.id}">${priceInner}</button>
           </div>
           <div class="card-cell">
@@ -1546,8 +1558,8 @@
             <div class="card-val ${yCls}">${yTxt}</div>
           </div>
           <div class="card-cell">
-            <div class="card-label">Ejerudg./md</div>
-            <div class="card-val" style="font-size:13px">${fmt(p.owner_costs_monthly) !== "–" ? fmt(p.owner_costs_monthly)+"\u00a0kr" : "–"}</div>
+            <div class="card-label">Drift/md</div>
+            <div class="card-val" style="font-size:13px;${cardDriftRisk ? 'color:var(--risk)' : ''}">${cardDriftTxt}</div>
           </div>
           <div class="card-cell">
             <div class="card-label">Køretid</div>
@@ -1557,8 +1569,8 @@
           </div>
         </div>
         <div class="card-footer">
-          <span>${fmt(p.sale_kr_per_sqm) !== "–" ? fmt(p.sale_kr_per_sqm)+"\u00a0kr/m²" : "–"}</span>
           <span class="leje-cell" style="cursor:pointer">${lejeTxt}&nbsp;<span style="font-size:10px;color:var(--muted)">est. leje/md</span></span>
+          <span class="${cardCfCls}" style="font-size:13px;font-weight:700">${cardCfTxt}</span>
         </div>
       `;
 
