@@ -1017,6 +1017,37 @@
     return html;
   }
 
+  function buildDriftTooltip(p, adjPrice, leje, ejerudgift, ydelse, udbetaling, laan, ratio) {
+    const nettoleje = leje != null ? leje - ejerudgift : null;
+    const cashflow  = nettoleje != null ? nettoleje - ydelse : null;
+    const cfSign    = cashflow != null && cashflow >= 0 ? "+" : "";
+    const cfCol     = cashflow != null ? (cashflow >= 0 ? "var(--green)" : "var(--risk)") : "#cbd5e1";
+    const loanRisk  = ratio > 0.80;
+    let html = `<div class="tooltip-title">📊 Udregning</div>`;
+    html += `<div class="tooltip-divider"></div>`;
+    // Finansiering
+    html += `<div class="tooltip-row" style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px"><span>Finansiering</span></div>`;
+    html += `<div class="tooltip-row"><span>Totalpris</span><span>${fmtKr(adjPrice)}</span></div>`;
+    html += `<div class="tooltip-row"><span>Udbetaling</span><span>${fmtKr(udbetaling)}</span></div>`;
+    html += `<div class="tooltip-row"><span>Lån</span><span${loanRisk ? ' style="color:var(--risk)"' : ''}>${fmtKr(Math.round(laan))}${loanRisk ? " ⚠" : ""}</span></div>`;
+    html += `<div class="tooltip-row"><span>Ydelse/md</span><span>${fmtKr(Math.round(ydelse))}</span></div>`;
+    html += `<div class="tooltip-divider"></div>`;
+    // Drift
+    html += `<div class="tooltip-row" style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px"><span>Drift</span></div>`;
+    html += `<div class="tooltip-row"><span>Ejerudgift</span><span>${fmtKr(ejerudgift)}</span></div>`;
+    html += `<div class="tooltip-row"><span>+ Ydelse</span><span>${fmtKr(Math.round(ydelse))}</span></div>`;
+    html += `<div class="tooltip-row" style="font-weight:700"><span>= Drift i alt</span><span>${fmtKr(ejerudgift + Math.round(ydelse))}</span></div>`;
+    html += `<div class="tooltip-divider"></div>`;
+    // Leje + cashflow
+    html += `<div class="tooltip-row" style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px"><span>Leje</span></div>`;
+    html += `<div class="tooltip-row"><span>Est. leje/md</span><span>${fmtKr(leje)}</span></div>`;
+    html += `<div class="tooltip-row"><span>− Ejerudgift</span><span>${fmtKr(ejerudgift)}</span></div>`;
+    html += `<div class="tooltip-row"><span>= Nettoleje</span><span style="font-weight:600">${fmtKr(nettoleje != null ? Math.round(nettoleje) : null)}</span></div>`;
+    html += `<div class="tooltip-row"><span>− Ydelse</span><span>${fmtKr(Math.round(ydelse))}</span></div>`;
+    html += `<div class="tooltip-row" style="font-weight:700"><span>= Cashflow</span><span style="color:${cfCol}">${cfSign}${fmtKr(cashflow != null ? Math.round(cashflow) : null)}</span></div>`;
+    return html;
+  }
+
   function buildYieldTooltip(p, ann, adjPrice, leje, ejerudgift, ydelse, udbetaling, yieldType, yieldPct) {
     const TYPE_LABEL = {
       finansieret: "💰 Finansieret afkast",
@@ -1065,6 +1096,12 @@
   }
   function positionTooltip(e) {
     const pad=12, tw=240, th=tooltip.offsetHeight||200;
+    // Touch/mobil: centrér på skærmen
+    if (window.innerWidth < 600) {
+      tooltip.style.left = Math.round((window.innerWidth - tw) / 2) + "px";
+      tooltip.style.top  = Math.round((window.innerHeight - th) / 2) + "px";
+      return;
+    }
     let x=e.clientX+pad, y=e.clientY-th/2;
     if (x+tw>window.innerWidth-pad)  x=e.clientX-tw-pad;
     if (y<pad)                        y=pad;
@@ -1518,7 +1555,7 @@
 
       // Drift + cashflow til kort
       const cardUd       = getUdbetaling();
-      const { ydelse: cardYdelse } = computeLoan(adjPrice, cardUd);
+      const { laan: cardLaan, ydelse: cardYdelse, ratio: cardRatio } = computeLoan(adjPrice, cardUd);
       const cardEjerudgift = p.owner_costs_monthly ?? 0;
       const cardDriftSamlet = cardEjerudgift + Math.round(cardYdelse);
       const cardCashflow  = cardLeje != null ? cardLeje - cardEjerudgift - Math.round(cardYdelse) : null;
@@ -1557,8 +1594,8 @@
             <div class="card-label">Afkast%</div>
             <div class="card-val ${yCls}">${yTxt}</div>
           </div>
-          <div class="card-cell">
-            <div class="card-label">Drift/md</div>
+          <div class="card-cell card-drift" style="cursor:pointer" title="Tap for udregning">
+            <div class="card-label">Drift/md ℹ</div>
             <div class="card-val" style="font-size:13px;${cardDriftRisk ? 'color:var(--risk)' : ''}">${cardDriftTxt}</div>
           </div>
           <div class="card-cell">
@@ -1583,6 +1620,15 @@
       });
       const lejeCell = card.querySelector(".leje-cell");
       if (lejeCell) lejeCell.addEventListener("click", e => { e.stopPropagation(); openLejeModal(p); });
+
+      // Drift-celle: tap viser finansiering/drift/leje-breakdown
+      const driftCell = card.querySelector(".card-drift");
+      if (driftCell) driftCell.addEventListener("click", e => {
+        e.stopPropagation();
+        tooltip.innerHTML = buildDriftTooltip(p, adjPrice, cardLeje, cardEjerudgift, cardYdelse, cardUd, cardLaan, cardRatio);
+        tooltip.classList.add("visible");
+        positionTooltip(e);
+      });
 
       container.appendChild(card);
     });
