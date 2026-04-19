@@ -156,6 +156,12 @@
     .e-E { background: #dc2626; } .e-F { background: #9f1239; }
     .e-G { background: #581c87; }
 
+    /* ── Badges: Ny, prisnedsættelse ── */
+    .badge-ny { display:inline-block; font-size:10px; font-weight:700; color:#fff;
+                background:var(--green); border-radius:3px; padding:1px 4px; margin-left:4px; vertical-align:middle; }
+    .badge-pricedrop { font-size:11px; color:#d97706; font-weight:600; }
+    .dom-sub { font-size:11px; color:var(--muted); }
+
     /* ── Priser ── */
     .num { text-align: right; white-space: nowrap; }
     .price-main { font-weight: 600; font-size: 13px; }
@@ -673,6 +679,7 @@
         <th style="width:36px"></th>
         <th data-col="address">Adresse <span class="si"></span></th>
         <th data-col="property_type">Type <span class="si"></span></th>
+        <th data-col="days_on_market" class="num" data-default-dir="asc" title="Sorter: nyeste først">Liggetid <span class="si"></span></th>
         <th data-col="energy_label" style="text-align:center">Energi <span class="si"></span></th>
         <th data-col="price" class="num">Totalpris <span class="si"></span></th>
         <th class="num">Finansiering</th>
@@ -901,6 +908,13 @@
   const fmt  = v => v != null ? new Intl.NumberFormat("da-DK").format(Math.round(v)) : "–";
   const fmtKr = v => v != null ? fmt(v) + "\u00a0kr" : "–";
   const fmtPct = v => v != null ? v.toFixed(1) + "%" : null;
+  function domCell(days) {
+    if (days == null) return `<span style="color:#cbd5e1">–</span>`;
+    if (days < 7)  return `<span class="badge-ny" style="font-size:11px">${days}d</span>`;
+    const color = days > 180 ? "#b91c1c" : days > 90 ? "#d97706" : "inherit";
+    return `<span style="font-size:12px;color:${color}">${days}<span style="font-size:10px;color:#94a3b8"> d</span></span>`;
+  }
+
   function fmtDuration(min) {
     if (min == null) return "–";
     const m = Math.round(min);
@@ -1349,6 +1363,7 @@
         : "";
       const locHtml = [zipLink, p.city ? esc(p.city) : ""].filter(Boolean).join("\u00a0");
 
+
       // Type + huslejeregler badge
       const icon    = TYPE_ICON[p.property_type] || "🏠";
       const typeDA  = TYPE_DA[p.property_type]   || esc(p.property_type||"–");
@@ -1385,6 +1400,11 @@
         priceInner = `<div class="price-main">${fmt(p.price)}\u00a0kr</div>`;
       }
       if (sqmPris) priceInner += `<div class="price-sub">${fmt(sqmPris)}\u00a0kr/m²</div>`;
+      if (p.price_change_count > 0 && p.price_change_amount < 0) {
+        const dropK = Math.round(Math.abs(p.price_change_amount) / 1000);
+        const times = p.price_change_count > 1 ? ` ×${p.price_change_count}` : "";
+        priceInner += `<div class="badge-pricedrop" title="${p.price_change_count} prisnedsættelse(r) på i alt ${fmt(Math.abs(p.price_change_amount))} kr">↓ ${dropK}k${times}</div>`;
+      }
       const priceHtml = `<button class="price-btn price-reno-${renoStatus}" data-reno-open="${p.id}" title="Klik for at estimere renovering">${priceInner}</button>`;
 
       // Finansieringskolonne
@@ -1449,6 +1469,7 @@
         <td style="text-align:center;padding:6px 4px">${statusBtn}</td>
         <td class="cell-addr">${addrHtml}<span class="loc">${locHtml}</span></td>
         <td class="cell-type"><span class="type-icon" title="${typeDA}">${icon}${unregBadge}</span><span class="type-sub">${esc(typeSub)}</span></td>
+        <td class="num">${domCell(p.days_on_market)}</td>
         <td style="text-align:center">${energyHtml}</td>
         <td class="num">${priceHtml}</td>
         <td class="num">${finHtml}</td>
@@ -1519,6 +1540,9 @@
         ? `<a href="https://www.boligsiden.dk/postnummer/${esc(p.zip_code)}/solgte" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted">${esc(p.zip_code)}</a>`
         : "";
       const cardLocHtml = [cardZipLink, p.city ? esc(p.city) : ""].filter(Boolean).join("\u00a0");
+
+      const cardDomSub  = (p.days_on_market != null && p.days_on_market >= 7)
+        ? `<div class="dom-sub">${p.days_on_market}\u00a0dage på markedet</div>` : "";
       const addrLink  = p.listing_url
         ? `<a href="${esc(p.listing_url)}" target="_blank" rel="noopener">${esc(street)}</a>`
         : `<span style="font-weight:600;font-size:14px">${esc(street)}</span>`;
@@ -1550,6 +1574,11 @@
       } else {
         priceInner = `<div class="price-adjusted">${fmt(p.price)}\u00a0kr</div>`
                    + `<div class="price-renovated">${fmt(adjPrice)}\u00a0kr</div>`;
+      }
+      if (p.price_change_count > 0 && p.price_change_amount < 0) {
+        const dropK = Math.round(Math.abs(p.price_change_amount) / 1000);
+        const times = p.price_change_count > 1 ? ` ×${p.price_change_count}` : "";
+        priceInner += `<div class="badge-pricedrop" title="${p.price_change_count} prisnedsættelse(r) på i alt ${fmt(Math.abs(p.price_change_amount))} kr">↓ ${dropK}k${times}</div>`;
       }
 
       // Afkast (bruger effektiv leje)
@@ -1597,6 +1626,7 @@
           <div class="card-addr">
             ${addrLink}
             <span class="loc">${cardLocHtml}${cardUnregBadge}</span>
+            ${cardDomSub}
           </div>
           ${energyHtml}
         </div>
@@ -1659,7 +1689,8 @@
   }
   document.querySelectorAll("th[data-col]").forEach(th => {
     th.addEventListener("click", () => {
-      sortDir = sortCol===th.dataset.col ? (sortDir==="asc"?"desc":"asc") : "desc";
+      const defaultDir = th.dataset.defaultDir || "desc";
+      sortDir = sortCol===th.dataset.col ? (sortDir==="asc"?"desc":"asc") : defaultDir;
       sortCol = th.dataset.col;
       renderTable();
     });

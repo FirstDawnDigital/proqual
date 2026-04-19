@@ -372,6 +372,15 @@ def _parse_case(c: dict) -> Optional[dict]:
         c.get('timeOnMarket') or c.get('daysOnMarket') or c.get('daysOnSale') or
         c.get('daysSinceListed') or c.get('marketDays')
     )
+    # Diagnostik: log feltnavne ved første parse så vi kan bekræfte det rigtige navn
+    if days_on_market is None and not getattr(_parse_case, '_logged_dom_fields', False):
+        dom_candidates = {k: v for k, v in c.items()
+                         if any(x in k.lower() for x in ('time', 'day', 'market', 'listed', 'since'))}
+        if dom_candidates:
+            logger.info("DEBUG days_on_market kandidater: %s", dom_candidates)
+        else:
+            logger.info("DEBUG alle top-level feltnavne (første case): %s", sorted(c.keys()))
+        _parse_case._logged_dom_fields = True
 
     # ── Prishistorik ──────────────────────────────────────────────
     # Boligsiden viser prishistorik på annoncesiden — API-felter usikre, prøv alle

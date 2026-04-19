@@ -1,0 +1,458 @@
+[
+  {
+    "zip_code": "2300",
+    "b_zip": 143.39,
+    "sample_size": 1461,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2720",
+    "b_zip": 140.22,
+    "sample_size": 106,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2500",
+    "b_zip": 139.3,
+    "sample_size": 564,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4000",
+    "b_zip": 100.48,
+    "sample_size": 247,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2970",
+    "b_zip": 119.45,
+    "sample_size": 66,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2000",
+    "b_zip": 162.26,
+    "sample_size": 356,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2400",
+    "b_zip": 156.84,
+    "sample_size": 261,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2450",
+    "b_zip": 144.91,
+    "sample_size": 753,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2700",
+    "b_zip": 115.96,
+    "sample_size": 130,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2860",
+    "b_zip": 107.87,
+    "sample_size": 163,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2100",
+    "b_zip": 170.41,
+    "sample_size": 430,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2200",
+    "b_zip": 154.71,
+    "sample_size": 162,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "1000",
+    "b_zip": 161.03,
+    "sample_size": 339,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2640",
+    "b_zip": 98.19,
+    "sample_size": 119,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2635",
+    "b_zip": 105.4,
+    "sample_size": 94,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2750",
+    "b_zip": 108.27,
+    "sample_size": 214,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2610",
+    "b_zip": 114.76,
+    "sample_size": 359,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2800",
+    "b_zip": 132.32,
+    "sample_size": 137,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3520",
+    "b_zip": 105.87,
+    "sample_size": 52,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2880",
+    "b_zip": 104.13,
+    "sample_size": 40,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2630",
+    "b_zip": 97.04,
+    "sample_size": 245,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2605",
+    "b_zip": 101.78,
+    "sample_size": 283,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2665",
+    "b_zip": 100.69,
+    "sample_size": 98,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2980",
+    "b_zip": 106.52,
+    "sample_size": 55,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2680",
+    "b_zip": 103.02,
+    "sample_size": 32,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2900",
+    "b_zip": 169.42,
+    "sample_size": 121,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2730",
+    "b_zip": 115.15,
+    "sample_size": 173,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "1500",
+    "b_zip": 182.51,
+    "sample_size": 345,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2770",
+    "b_zip": 130.74,
+    "sample_size": 24,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3650",
+    "b_zip": 101.33,
+    "sample_size": 82,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2850",
+    "b_zip": 114.53,
+    "sample_size": 15,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3060",
+    "b_zip": 100.76,
+    "sample_size": 53,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3500",
+    "b_zip": 113.06,
+    "sample_size": 17,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2600",
+    "b_zip": 104.09,
+    "sample_size": 328,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3600",
+    "b_zip": 89.98,
+    "sample_size": 164,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3000",
+    "b_zip": 92.38,
+    "sample_size": 93,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2960",
+    "b_zip": 110.51,
+    "sample_size": 26,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3400",
+    "b_zip": 104.24,
+    "sample_size": 371,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3250",
+    "b_zip": 92.64,
+    "sample_size": 17,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3460",
+    "b_zip": 112.59,
+    "sample_size": 118,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2650",
+    "b_zip": 106.58,
+    "sample_size": 59,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3050",
+    "b_zip": 92.92,
+    "sample_size": 21,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3450",
+    "b_zip": 108.39,
+    "sample_size": 33,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2920",
+    "b_zip": 148.97,
+    "sample_size": 62,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "1900",
+    "b_zip": 162.3,
+    "sample_size": 101,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4300",
+    "b_zip": 78.64,
+    "sample_size": 96,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "8260",
+    "b_zip": 65.3,
+    "sample_size": 14,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2670",
+    "b_zip": 99.1,
+    "sample_size": 150,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2820",
+    "b_zip": 140.67,
+    "sample_size": 40,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3320",
+    "b_zip": 84.07,
+    "sample_size": 20,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4070",
+    "b_zip": 87.74,
+    "sample_size": 28,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4600",
+    "b_zip": 102.21,
+    "sample_size": 90,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4622",
+    "b_zip": 105.58,
+    "sample_size": 13,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3300",
+    "b_zip": 83.1,
+    "sample_size": 58,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2620",
+    "b_zip": 97.85,
+    "sample_size": 240,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3200",
+    "b_zip": 92.27,
+    "sample_size": 55,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3540",
+    "b_zip": 119.61,
+    "sample_size": 28,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3230",
+    "b_zip": 79.27,
+    "sample_size": 28,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4340",
+    "b_zip": 94.74,
+    "sample_size": 33,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2740",
+    "b_zip": 109.13,
+    "sample_size": 37,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2870",
+    "b_zip": 92.95,
+    "sample_size": 10,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2942",
+    "b_zip": 187.48,
+    "sample_size": 16,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2840",
+    "b_zip": 112.0,
+    "sample_size": 19,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4500",
+    "b_zip": 45.57,
+    "sample_size": 16,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3480",
+    "b_zip": 89.94,
+    "sample_size": 43,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3550",
+    "b_zip": 88.43,
+    "sample_size": 22,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4330",
+    "b_zip": 65.5,
+    "sample_size": 11,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2990",
+    "b_zip": 115.41,
+    "sample_size": 30,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3390",
+    "b_zip": 70.9,
+    "sample_size": 14,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4130",
+    "b_zip": 91.89,
+    "sample_size": 12,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4295",
+    "b_zip": 63.51,
+    "sample_size": 14,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3100",
+    "b_zip": 102.46,
+    "sample_size": 10,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "3310",
+    "b_zip": 86.46,
+    "sample_size": 13,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2950",
+    "b_zip": 151.06,
+    "sample_size": 26,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "2765",
+    "b_zip": 109.36,
+    "sample_size": 35,
+    "calculated_at": "2026-04-19 06:46:39"
+  },
+  {
+    "zip_code": "4030",
+    "b_zip": 97.98,
+    "sample_size": 30,
+    "calculated_at": "2026-04-19 06:46:39"
+  }
+]
