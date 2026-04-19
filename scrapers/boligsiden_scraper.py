@@ -367,40 +367,30 @@ def _parse_case(c: dict) -> Optional[dict]:
     listing_url = f"{BASE_URL}/adresse/{slug_addr}" if slug_addr else None
 
     # ── Liggetid ──────────────────────────────────────────────────
-    # Bekræftet via sortBy=timeOnMarket — feltet hedder sandsynligvis timeOnMarket
-    days_on_market = _to_int(
-        c.get('timeOnMarket') or c.get('daysOnMarket') or c.get('daysOnSale') or
-        c.get('daysSinceListed') or c.get('marketDays')
-    )
-    # Diagnostik: log feltnavne ved første parse så vi kan bekræfte det rigtige navn
-    if days_on_market is None and not getattr(_parse_case, '_logged_dom_fields', False):
-        dom_candidates = {k: v for k, v in c.items()
-                         if any(x in k.lower() for x in ('time', 'day', 'market', 'listed', 'since'))}
-        if dom_candidates:
-            logger.info("DEBUG days_on_market kandidater: %s", dom_candidates)
-        else:
-            logger.info("DEBUG alle top-level feltnavne (første case): %s", sorted(c.keys()))
-        _parse_case._logged_dom_fields = True
+    # Bekræftet API-struktur (april 2026):
+    #   daysListed: {days: N}
+    #   timeOnMarket: {current: {days: N}, total: {days: N, realtors: [...]}}
+    days_on_market = None
+    dl = c.get('daysListed')
+    if isinstance(dl, dict):
+        days_on_market = _to_int(dl.get('days'))
+    if days_on_market is None:
+        tom = c.get('timeOnMarket')
+        if isinstance(tom, dict):
+            days_on_market = (_to_int((tom.get('total') or {}).get('days'))
+                              or _to_int((tom.get('current') or {}).get('days')))
 
     # ── Prishistorik ──────────────────────────────────────────────
-    # Boligsiden viser prishistorik på annoncesiden — API-felter usikre, prøv alle
-    price_change_count = _to_int(
-        c.get('numberOfPriceChanges') or c.get('priceChangeCount') or
-        c.get('priceChanges') if not isinstance(c.get('priceChanges'), list) else None
-    )
-    # Hvis priceChanges er en liste, tæl elementer og summer beløb
-    price_changes_list = c.get('priceChanges') or c.get('priceHistory') or []
-    if isinstance(price_changes_list, list) and price_changes_list:
-        if price_change_count is None:
-            price_change_count = len(price_changes_list)
-        price_change_amount = sum(
-            _to_int(ch.get('amount') or ch.get('change') or ch.get('priceDifference') or 0)
-            for ch in price_changes_list if isinstance(ch, dict)
-        ) or None
+    # Bekræftet API-struktur (april 2026) — stadig ukendt, logger ved første fund
+    # Bekræftet API-felt (april 2026): priceChangePercentage (float, negativ = reduktion)
+    # API giver ikke count eller absolut beløb — vi beregner approx fra pris × pct
+    price_change_pct = c.get('priceChangePercentage')
+    if price_change_pct is not None and price_change_pct != 0 and price is not None:
+        price_change_count  = 1
+        price_change_amount = round(price * price_change_pct / 100)
     else:
-        price_change_amount = _to_int(
-            c.get('priceReduction') or c.get('priceDifference') or c.get('priceChange')
-        )
+        price_change_count  = None
+        price_change_amount = None
 
     # ── Koordinater ───────────────────────────────────────────────
     # Boligsiden API returnerer muligvis koordinater i address-objektet
