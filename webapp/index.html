@@ -102,6 +102,11 @@
     tr.pinned td { background: #fefce8; }
     tr.pinned:hover td { background: #fef9c3; }
 
+    /* Aktiv række — blå venstrekant, låst i visning */
+    tr.active-row td { background: #f0f9ff; }
+    tr.active-row td:first-child { border-left: 3px solid var(--blue); }
+    tr.active-row:hover td { background: #e0f2fe; }
+
     /* ── Status-knap ── */
     .status-btn {
       font-size: 18px; background: none; border: none; cursor: pointer;
@@ -877,6 +882,7 @@
   let sortCol    = "yield_v2_pct";
   let sortDir    = "desc";
   let statusFilter = "all";  // all | favorite | disqualified
+  let activeRowId  = null;   // session-lås: denne ejendom vises altid uanset filtre
 
   // Modal state
   let modalPropId      = null;
@@ -1243,7 +1249,8 @@
         if (!hasEdit) return false;
       }
 
-      // Pinned items bypass alle andre filtre i "alle"-visning
+      // Aktiv række og pinned bypasser alle filtre
+      if (p.id === activeRowId) return true;
       if (ann.status === "pinned" && statusFilter === "all") return true;
 
       if (zips.length && !zips.some(z => p.zip_code===z))  return false;
@@ -1435,7 +1442,8 @@
 
       const tr = document.createElement("tr");
       if (ann.status==="disqualified") tr.classList.add("disqualified");
-      if (ann.status==="pinned") tr.classList.add("pinned");
+      if (ann.status==="pinned")       tr.classList.add("pinned");
+      if (p.id === activeRowId)        tr.classList.add("active-row");
 
       tr.innerHTML = `
         <td style="text-align:center;padding:6px 4px">${statusBtn}</td>
@@ -1476,6 +1484,14 @@
       tr.querySelector("[data-reno-open]").addEventListener("click", e => {
         e.stopPropagation();
         openRenoModal(p);
+      });
+
+      // Klik på rækken (ikke på knapper/links) toggler aktiv-lås
+      tr.addEventListener("click", e => {
+        const tag = e.target.tagName;
+        if (tag === "A" || tag === "BUTTON" || e.target.closest("button, a")) return;
+        activeRowId = (activeRowId === p.id) ? null : p.id;
+        renderTable();
       });
 
       tbody.appendChild(tr);
