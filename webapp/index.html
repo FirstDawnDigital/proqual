@@ -68,7 +68,7 @@
       border: 1px solid var(--accent); border-radius: 6px; font-size: 12px; cursor: pointer;
     }
     #show-all-btn:hover { background: #f0f9ff; }
-    #result-count { font-size: 12px; color: var(--muted); }
+    #result-count { font-size: 12px; color: var(--muted); display: none; }
 
     /* Status-filter chips */
     .chip-group { display: flex; gap: 4px; }
@@ -164,14 +164,47 @@
     .cell-addr .loc a { display: inline; font-size: inherit; font-weight: inherit; color: inherit; }
     .cell-addr .loc a:hover { text-decoration: underline dotted; }
 
-    /* ── Boligtype multi-select chips ── */
-    .type-chip-group { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
-    .type-chip {
-      padding: 3px 7px; border-radius: 12px; font-size: 11px; cursor: pointer;
-      border: 1px solid var(--border); background: var(--bg); color: var(--muted);
-      white-space: nowrap; transition: all .15s; line-height: 1.5;
+    /* ── Filter-sektion labels ── */
+    .filter-section {
+      grid-column: 1 / -1;
+      font-size: 10px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.7px;
+      padding-top: 8px; margin-top: 2px;
+      border-top: 1px solid var(--border);
     }
-    .type-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .filter-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+    /* ── Boligtype dropdown ── */
+    .type-dd-wrapper { position: relative; }
+    .type-dd-btn {
+      padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; background: var(--bg); color: var(--text); width: 100%;
+      text-align: left; cursor: pointer; display: flex; align-items: center;
+      justify-content: space-between; gap: 4px;
+    }
+    .type-dd-btn:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px #2563eb22; }
+    .type-dd-btn.filtered { border-color: var(--blue); background: #eff6ff; color: var(--blue); }
+    .type-dd-panel {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.12); padding: 4px; min-width: 170px;
+      display: none;
+    }
+    .type-dd-panel.open { display: block; }
+    .type-dd-item {
+      display: flex; align-items: center; gap: 7px; padding: 6px 8px;
+      border-radius: 5px; cursor: pointer; font-size: 13px; user-select: none;
+    }
+    .type-dd-item:hover { background: var(--bg); }
+    .type-dd-item input[type=checkbox] { margin: 0; cursor: pointer; accent-color: var(--blue); }
+
+    /* ── View-bar (chips over tabellen) ── */
+    .view-bar {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 6px 16px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+    }
+    #view-result-count { font-size: 12px; color: var(--muted); margin-left: auto; }
 
     /* ── Type ── */
     .cell-type { white-space: nowrap; }
@@ -596,14 +629,68 @@
     </div>
     <!-- Selve filter-inputs -->
     <div class="filter-grid">
+
+      <!-- ── Beliggenhed ── -->
+      <div class="filter-section">Beliggenhed</div>
       <div class="filter-group">
         <label>Postnummer</label>
         <input type="text" id="f-zip" placeholder="3300, 4200…">
       </div>
-      <div class="filter-group" style="grid-column: span 2">
-        <label>Boligtype</label>
-        <div id="f-type-chips" class="type-chip-group"></div>
+      <div class="filter-group">
+        <label>Maks. køretid</label>
+        <select id="f-maxcommute">
+          <option value="">Alle</option>
+          <option value="20">Max 20 min</option>
+          <option value="25">Max 25 min</option>
+          <option value="30">Max 30 min</option>
+          <option value="35">Max 35 min</option>
+          <option value="40">Max 40 min</option>
+          <option value="45" selected>Max 45 min</option>
+          <option value="50">Max 50 min</option>
+          <option value="55">Max 55 min</option>
+          <option value="60">Max 60 min</option>
+          <option value="70">Max 70 min</option>
+          <option value="80">Max 80 min</option>
+          <option value="90">Max 90 min</option>
+          <option value="105">Max 105 min</option>
+          <option value="120">Max 120 min</option>
+        </select>
       </div>
+
+      <!-- ── Ejendom ── -->
+      <div class="filter-section">Ejendom</div>
+      <div class="filter-group type-dd-wrapper">
+        <label>Boligtype</label>
+        <button class="type-dd-btn" id="type-dd-btn" type="button">
+          <span id="type-dd-label">Alle typer</span>
+          <span style="font-size:10px;opacity:.45">▾</span>
+        </button>
+        <div class="type-dd-panel" id="type-dd-panel"></div>
+      </div>
+      <div class="filter-group">
+        <label>Min. rum</label>
+        <input type="number" id="f-minrooms" placeholder="1" min="1" max="10">
+      </div>
+      <div class="filter-group">
+        <label>Max. rum</label>
+        <input type="number" id="f-maxrooms" placeholder="10" min="1" max="10">
+      </div>
+      <div class="filter-group">
+        <label>Energimærke (maks.)</label>
+        <select id="f-energy">
+          <option value="">Alle mærker</option>
+          <option value="A">A (kun A)</option>
+          <option value="B">B (A–B)</option>
+          <option value="C">C (A–C)</option>
+          <option value="D" selected>D (A–D)</option>
+          <option value="E">E (A–E)</option>
+          <option value="F">F (A–F)</option>
+          <option value="G">G (alle)</option>
+        </select>
+      </div>
+
+      <!-- ── Økonomi ── -->
+      <div class="filter-section">Økonomi</div>
       <div class="filter-group">
         <label>Maks. pris (kr)</label>
         <input type="number" id="f-maxprice" placeholder="2.500.000" step="50000">
@@ -630,47 +717,9 @@
           <option value="realkredit">Realkredit 4%</option>
         </select>
       </div>
-      <div class="filter-group">
-        <label>Min. rum</label>
-        <input type="number" id="f-minrooms" placeholder="1" min="1" max="10">
-      </div>
-      <div class="filter-group">
-        <label>Max. rum</label>
-        <input type="number" id="f-maxrooms" placeholder="10" min="1" max="10">
-      </div>
-      <div class="filter-group">
-        <label>Energimærke (maks.)</label>
-        <select id="f-energy">
-          <option value="">Alle mærker</option>
-          <option value="A">A (kun A)</option>
-          <option value="B">B (A–B)</option>
-          <option value="C">C (A–C)</option>
-          <option value="D" selected>D (A–D)</option>
-          <option value="E">E (A–E)</option>
-          <option value="F">F (A–F)</option>
-          <option value="G">G (alle)</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Maks. køretid</label>
-        <select id="f-maxcommute">
-          <option value="">Alle</option>
-          <option value="20">Max 20 min</option>
-          <option value="25">Max 25 min</option>
-          <option value="30">Max 30 min</option>
-          <option value="35">Max 35 min</option>
-          <option value="40">Max 40 min</option>
-          <option value="45" selected>Max 45 min</option>
-          <option value="50">Max 50 min</option>
-          <option value="55">Max 55 min</option>
-          <option value="60">Max 60 min</option>
-          <option value="70">Max 70 min</option>
-          <option value="80">Max 80 min</option>
-          <option value="90">Max 90 min</option>
-          <option value="105">Max 105 min</option>
-          <option value="120">Max 120 min</option>
-        </select>
-      </div>
+
+      <!-- ── Data ── -->
+      <div class="filter-section">Data</div>
       <div class="filter-group">
         <label>Lejedata (min. n)</label>
         <select id="f-minn">
@@ -687,6 +736,7 @@
           <option value="1">Kun uregulerede</option>
         </select>
       </div>
+
     </div>
     <!-- Footer kun synlig på mobil -->
     <div class="sheet-actions">
@@ -700,19 +750,24 @@
     <button class="mobile-filter-btn" id="mobile-filter-btn">⚙️ Filtre</button>
     <button id="reset-btn">Nulstil</button>
     <button id="show-all-btn">Vis alle</button>
-    <div class="chip-group">
-      <button class="chip active" id="alle-chip"  data-filter="all">Alle</button>
-      <button class="chip" data-filter="favorite">⭐ Favoritter</button>
-      <button class="chip" id="disq-chip"  data-filter="disq">❌ Diskvalificerede</button>
-      <button class="chip" id="trash-chip" data-filter="trash" title="Vis skjulte ejendomme">🗑️</button>
-      <button class="chip" data-filter="edited">✏️ Redigerede</button>
-    </div>
     <span id="result-count"></span>
   </div>
 </div>
 
 <!-- Backdrop til bottom sheet -->
 <div id="filter-backdrop"></div>
+
+<!-- View-bar: Alle / Favoritter / Diskvalificerede / Trash / Redigerede -->
+<div class="view-bar">
+  <div class="chip-group">
+    <button class="chip active" id="alle-chip" data-filter="all">Alle</button>
+    <button class="chip" data-filter="favorite">⭐ Favoritter</button>
+    <button class="chip" id="disq-chip"  data-filter="disq">❌ Diskvalificerede</button>
+    <button class="chip" id="trash-chip" data-filter="trash" title="Vis skjulte ejendomme">🗑️</button>
+    <button class="chip" data-filter="edited">✏️ Redigerede</button>
+  </div>
+  <span id="view-result-count"></span>
+</div>
 
 <div id="table-wrapper">
   <div id="loading"><div class="spinner"></div><br>Henter ejendomsdata…</div>
@@ -1228,19 +1283,7 @@
         console.warn("Annotations endpoint ikke tilgængeligt:", e);
       }
 
-      const chipsDiv = document.getElementById("f-type-chips");
-      meta.property_types.forEach(t => {
-        const chip = document.createElement("button");
-        chip.className = "type-chip" + (t !== "villalejlighed" ? " active" : "");
-        chip.dataset.type = t;
-        chip.textContent = (TYPE_ICON[t] || "") + " " + (TYPE_DA[t] || t);
-        chip.addEventListener("click", () => {
-          chip.classList.toggle("active");
-          renderTable();
-          updateFilterBadge();
-        });
-        chipsDiv.appendChild(chip);
-      });
+      buildTypeDropdown(meta.property_types);
       const dt = meta.scraped_at ? meta.scraped_at.slice(0,16).replace("T"," ") : "–";
       document.getElementById("meta-info").innerHTML =
         `${meta.total} boliger<br><span style="font-size:10px">Opdateret ${dt}</span>`;
@@ -1352,18 +1395,66 @@
     saveAnnotation(id, { status: next }).then(() => renderTable());
   }
 
-  // ── Type-chips ────────────────────────────────────────
+  // ── Boligtype dropdown ────────────────────────────────
+  const typeDdPanel = document.getElementById("type-dd-panel");
+  const typeDdBtn   = document.getElementById("type-dd-btn");
+  const typeDdLabel = document.getElementById("type-dd-label");
+
+  function updateTypeDdLabel() {
+    const all    = typeDdPanel.querySelectorAll(".type-dd-cb");
+    const active = [...typeDdPanel.querySelectorAll(".type-dd-cb:checked")];
+    if (!all.length || active.length === all.length) {
+      typeDdLabel.textContent = "Alle typer";
+      typeDdBtn.classList.remove("filtered");
+    } else {
+      typeDdLabel.textContent = active.length + " valgt";
+      typeDdBtn.classList.add("filtered");
+    }
+  }
+
+  function buildTypeDropdown(types) {
+    typeDdPanel.innerHTML = "";
+    types.forEach(t => {
+      const lbl = document.createElement("label");
+      lbl.className = "type-dd-item";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "type-dd-cb";
+      cb.dataset.type = t;
+      cb.checked = t !== "villalejlighed";
+      cb.addEventListener("change", () => {
+        renderTable();
+        updateFilterBadge();
+        updateTypeDdLabel();
+      });
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(" " + (TYPE_ICON[t] || "") + " " + (TYPE_DA[t] || t)));
+      typeDdPanel.appendChild(lbl);
+    });
+    updateTypeDdLabel();
+  }
+
+  typeDdBtn.addEventListener("click", e => {
+    e.stopPropagation();
+    typeDdPanel.classList.toggle("open");
+  });
+  document.addEventListener("click", e => {
+    if (!typeDdPanel.contains(e.target) && e.target !== typeDdBtn)
+      typeDdPanel.classList.remove("open");
+  });
+
   function getSelectedTypes() {
-    const all    = document.querySelectorAll(".type-chip");
-    const active = document.querySelectorAll(".type-chip.active");
+    const all    = typeDdPanel.querySelectorAll(".type-dd-cb");
+    const active = [...typeDdPanel.querySelectorAll(".type-dd-cb:checked")];
     if (!all.length || active.length === all.length) return null; // ingen filtrering
-    return new Set([...active].map(c => c.dataset.type));
+    return new Set(active.map(c => c.dataset.type));
   }
 
   function resetTypeChips() {
-    document.querySelectorAll(".type-chip").forEach(chip => {
-      chip.classList.toggle("active", chip.dataset.type !== "villalejlighed");
+    typeDdPanel.querySelectorAll(".type-dd-cb").forEach(cb => {
+      cb.checked = cb.dataset.type !== "villalejlighed";
     });
+    updateTypeDdLabel();
   }
 
   // ── Filter ────────────────────────────────────────────
@@ -1478,7 +1569,9 @@
   function renderTable() {
     const filtered = getFiltered();
     const sorted   = getSorted(filtered);
-    document.getElementById("result-count").textContent = `${sorted.length} boliger`;
+    const countTxt = `${sorted.length} boliger`;
+    document.getElementById("result-count").textContent = countTxt;
+    document.getElementById("view-result-count").textContent = countTxt;
     if (typeof updateFilterBadge === "function") updateFilterBadge();
 
     const tbody = document.getElementById("table-body");
@@ -1983,7 +2076,8 @@
     document.getElementById("f-yieldtype").value="finansieret";
     document.getElementById("f-unreg").value="";
     // Alle boligtyper aktive inkl. villalejlighed
-    document.querySelectorAll(".type-chip").forEach(c => c.classList.add("active"));
+    typeDdPanel.querySelectorAll(".type-dd-cb").forEach(cb => { cb.checked = true; });
+    updateTypeDdLabel();
     setChipFilter("all");
     renderTable();
     updateFilterBadge();
