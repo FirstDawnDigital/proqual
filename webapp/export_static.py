@@ -211,24 +211,17 @@ STATIC_LOAD_DATA = r"""  // ── Load data (STATISK — data er bagt ind i den
       // Annotations fra Cloudflare Worker (samme Turso som live-versionen)
       try {
         const annRes = await apiFetch("/api/annotations");
-        if (annRes.ok) annotations = await annRes.json();
+        if (annRes.ok) {
+          annotations = await annRes.json();
+          annotationsLoaded = true;
+        } else {
+          console.warn("Annotations endpoint svarede", annRes.status, "— gem er deaktiveret");
+        }
       } catch (e) {
         console.warn("Kunne ikke indlæse annotations fra Worker:", e);
       }
 
-      const chipsDiv = document.getElementById("f-type-chips");
-      meta.property_types.forEach(t => {
-        const chip = document.createElement("button");
-        chip.className = "type-chip" + (t !== "villalejlighed" ? " active" : "");
-        chip.dataset.type = t;
-        chip.textContent = (TYPE_ICON[t]||"") + " " + (TYPE_DA[t]||t);
-        chip.addEventListener("click", () => {
-          chip.classList.toggle("active");
-          renderTable();
-          updateFilterBadge();
-        });
-        chipsDiv.appendChild(chip);
-      });
+      buildTypeDropdown(meta.property_types);
       const dt = meta.scraped_at ? meta.scraped_at.slice(0,16).replace("T"," ") : "–";
       const exp = data.exported_at ? data.exported_at.slice(0,10) : "";
       document.getElementById("meta-info").innerHTML =
@@ -275,19 +268,7 @@ PUBLIC_LOAD_DATA = r"""  // ── Load data (STATISK PUBLIC — data er bagt in
         console.warn("localStorage ikke tilgængeligt:", e);
       }
 
-      const chipsDiv = document.getElementById("f-type-chips");
-      meta.property_types.forEach(t => {
-        const chip = document.createElement("button");
-        chip.className = "type-chip" + (t !== "villalejlighed" ? " active" : "");
-        chip.dataset.type = t;
-        chip.textContent = (TYPE_ICON[t]||"") + " " + (TYPE_DA[t]||t);
-        chip.addEventListener("click", () => {
-          chip.classList.toggle("active");
-          renderTable();
-          updateFilterBadge();
-        });
-        chipsDiv.appendChild(chip);
-      });
+      buildTypeDropdown(meta.property_types);
       const dt = meta.scraped_at ? meta.scraped_at.slice(0,16).replace("T"," ") : "–";
       const exp = data.exported_at ? data.exported_at.slice(0,10) : "";
       document.getElementById("meta-info").innerHTML =

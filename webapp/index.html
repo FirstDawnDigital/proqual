@@ -38,37 +38,90 @@
     /* ── Filter panel ── */
     #filter-panel {
       background: var(--card); border-bottom: 2px solid var(--border);
-      padding: 12px 16px 10px; flex-shrink: 0;
+      flex-shrink: 0;
     }
-    .filter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 8px;
+
+    /* 2 kategorier pr. linje */
+    .filter-row {
+      display: flex; align-items: stretch;
+      padding: 7px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 0;
     }
-    .filter-group { display: flex; flex-direction: column; gap: 3px; }
+    /* Kategori-blok: ikon+label til venstre, inputs til højre */
+    .filter-block {
+      display: flex; align-items: flex-end; gap: 8px; flex: none;
+    }
+    /* Ikon + kategori-label, justeret til bunden af inputs */
+    .filter-cat-label {
+      display: flex; flex-direction: column; justify-content: flex-end;
+      gap: 2px; width: 54px; flex-shrink: 0; padding-bottom: 3px;
+    }
+    .filter-cat-icon { font-size: 15px; line-height: 1; }
+    .filter-cat-text {
+      font-size: 8.5px; font-weight: 800; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.4px;
+      line-height: 1.25; word-break: break-word;
+    }
+    /* Inputs for each category */
+    .filter-inputs { display: flex; gap: 8px; align-items: flex-end; }
+
+    /* Separator mellem kategorierne */
+    .filter-row-sep {
+      width: 1px; background: var(--border); align-self: stretch;
+      margin: 0 10px; flex-shrink: 0;
+    }
+
+    /* Individuelle filter-felt */
+    .filter-group { display: flex; flex-direction: column; gap: 2px; flex: none; }
     .filter-group label {
       font-size: 10px; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.6px;
+      text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
     }
     .filter-group input, .filter-group select {
-      padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 5px 7px; border: 1px solid var(--border); border-radius: 6px;
       font-size: 13px; background: var(--bg); color: var(--text); width: 100%;
     }
     .filter-group input:focus, .filter-group select:focus {
       outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px #2563eb22;
     }
-    .filter-bar { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+    /* Faste bredder per felt */
+    .fg-zip      { width: 138px; }
+    .fg-commute  { width: 128px; }
+    .fg-type     { width: 128px; }
+    .fg-minrooms { width:  72px; }
+    .fg-maxrooms { width:  72px; }
+    .fg-energy   { width: 118px; }
+    .fg-maxprice { width: 148px; }
+    .fg-minyield { width: 108px; }
+    .fg-udbetal  { width: 138px; }
+    .fg-yieldtype { width: 152px; }
+    .fg-laantype { width: 128px; }
+    .fg-minn     { width: 148px; }
+    .fg-unreg    { width: 142px; }
+
+    /* Linje 3: Nulstil + Vis alle + view-chips + tæller */
+    .filter-bar {
+      display: flex; gap: 6px; padding: 7px 16px;
+      align-items: center; flex-wrap: wrap;
+    }
     #reset-btn {
-      padding: 5px 12px; background: var(--accent); color: #fff;
+      padding: 4px 11px; background: var(--accent); color: #fff;
       border: none; border-radius: 6px; font-size: 12px; cursor: pointer;
+      flex-shrink: 0;
     }
     #reset-btn:hover { opacity: 0.82; }
     #show-all-btn {
-      padding: 5px 12px; background: #fff; color: var(--accent);
+      padding: 4px 11px; background: #fff; color: var(--accent);
       border: 1px solid var(--accent); border-radius: 6px; font-size: 12px; cursor: pointer;
+      flex-shrink: 0;
     }
     #show-all-btn:hover { background: #f0f9ff; }
-    #result-count { font-size: 12px; color: var(--muted); display: none; }
+    .filter-bar-sep {
+      width: 1px; height: 18px; background: var(--border); flex-shrink: 0; margin: 0 2px;
+    }
+    #result-count { font-size: 12px; color: var(--muted); margin-left: auto; }
+    .filter-bar-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; }
 
     /* Status-filter chips */
     .chip-group { display: flex; gap: 4px; }
@@ -164,47 +217,21 @@
     .cell-addr .loc a { display: inline; font-size: inherit; font-weight: inherit; color: inherit; }
     .cell-addr .loc a:hover { text-decoration: underline dotted; }
 
-    /* ── Filter-sektion labels ── */
-    .filter-section {
-      grid-column: 1 / -1;
-      font-size: 10px; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.7px;
-      padding-top: 8px; margin-top: 2px;
-      border-top: 1px solid var(--border);
-    }
-    .filter-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    /* (filter-section labels fjernet — se .filter-block-label i stedet) */
 
-    /* ── Boligtype dropdown ── */
-    .type-dd-wrapper { position: relative; }
-    .type-dd-btn {
-      padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
-      font-size: 13px; background: var(--bg); color: var(--text); width: 100%;
-      text-align: left; cursor: pointer; display: flex; align-items: center;
-      justify-content: space-between; gap: 4px;
+    /* ── Boligtype icon-toggle knapper ── */
+    .type-icon-group { display: flex; gap: 3px; align-items: center; }
+    .type-icon-btn {
+      width: 32px; height: 30px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg); cursor: pointer; font-size: 16px; display: flex;
+      align-items: center; justify-content: center; opacity: 0.35;
+      transition: opacity .1s, border-color .1s, background .1s;
+      flex-shrink: 0;
     }
-    .type-dd-btn:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px #2563eb22; }
-    .type-dd-btn.filtered { border-color: var(--blue); background: #eff6ff; color: var(--blue); }
-    .type-dd-panel {
-      position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
-      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.12); padding: 4px; min-width: 170px;
-      display: none;
-    }
-    .type-dd-panel.open { display: block; }
-    .type-dd-item {
-      display: flex; align-items: center; gap: 7px; padding: 6px 8px;
-      border-radius: 5px; cursor: pointer; font-size: 13px; user-select: none;
-    }
-    .type-dd-item:hover { background: var(--bg); }
-    .type-dd-item input[type=checkbox] { margin: 0; cursor: pointer; accent-color: var(--blue); }
+    .type-icon-btn.active { opacity: 1; border-color: var(--blue); background: #eff6ff; }
+    .type-icon-btn:hover { opacity: 0.75; }
 
-    /* ── View-bar (chips over tabellen) ── */
-    .view-bar {
-      background: var(--card); border-bottom: 1px solid var(--border);
-      padding: 6px 16px; flex-shrink: 0;
-      display: flex; align-items: center; gap: 8px;
-    }
-    #view-result-count { font-size: 12px; color: var(--muted); margin-left: auto; }
+    /* (view-bar fjernet — chips er nu i filter-bar linje 3) */
 
     /* ── Type ── */
     .cell-type { white-space: nowrap; }
@@ -535,7 +562,9 @@
 
     /* ── Desktop: lille skærm (tablet) ── */
     @media (max-width: 900px) {
-      .filter-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+      .fg-yieldtype { width: 128px; }
+      .fg-maxprice  { width: 120px; }
+      .fg-udbetal   { width: 120px; }
     }
 
     /* ── Mobil: bottom sheet ── */
@@ -546,8 +575,10 @@
       #filter-panel { padding: 8px 12px; }
 
       /* Skjul desktop-elementerne */
-      .filter-grid { display: none !important; }
+      .filter-row  { display: none; }
       #reset-btn   { display: none; }
+      #show-all-btn { display: none; }
+      .filter-bar-sep { display: none; }
 
       /* Vis mobilknap */
       .mobile-filter-btn { display: flex; }
@@ -582,13 +613,22 @@
         cursor: pointer; color: var(--muted); padding: 2px 4px; line-height: 1;
       }
 
-      /* Grid inde i sheet */
-      #filter-sheet .filter-grid {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px; padding: 16px;
-        overflow-y: auto; flex: 1;
+      /* Vis filter-rows inde i sheet (mobil) */
+      #filter-sheet .filter-row {
+        display: flex !important; flex-direction: column;
+        gap: 10px; padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
       }
+      #filter-sheet .filter-block {
+        flex-direction: column; align-items: flex-start; gap: 6px;
+      }
+      #filter-sheet .filter-cat-label {
+        flex-direction: row; align-items: center; width: auto; padding-bottom: 0; gap: 4px;
+      }
+      #filter-sheet .filter-inputs { flex-wrap: wrap; }
+      #filter-sheet .filter-row-sep { display: none; }
+      #filter-sheet .filter-group { flex: 1 !important; min-width: 110px; width: auto !important; }
+      #filter-sheet { overflow-y: auto; flex: 1; }
 
       /* Sheet-footer */
       .sheet-actions {
@@ -627,116 +667,137 @@
         <button class="sheet-close-btn" id="sheet-close-btn">✕</button>
       </div>
     </div>
-    <!-- Selve filter-inputs -->
-    <div class="filter-grid">
+    <!-- Linje 1: Beliggenhed + Ejendom -->
+    <div class="filter-row">
+      <div class="filter-block">
+        <div class="filter-cat-label">
+          <span class="filter-cat-icon">📍</span>
+          <span class="filter-cat-text">Beliggenhed</span>
+        </div>
+        <div class="filter-inputs">
+          <div class="filter-group fg-zip">
+            <label>Postnummer</label>
+            <input type="text" id="f-zip" placeholder="3300, 4200…">
+          </div>
+          <div class="filter-group fg-commute">
+            <label>Køretid</label>
+            <select id="f-maxcommute">
+              <option value="">Alle</option>
+              <option value="20">Max 20 min</option>
+              <option value="25">Max 25 min</option>
+              <option value="30">Max 30 min</option>
+              <option value="35">Max 35 min</option>
+              <option value="40">Max 40 min</option>
+              <option value="45" selected>Max 45 min</option>
+              <option value="50">Max 50 min</option>
+              <option value="55">Max 55 min</option>
+              <option value="60">Max 60 min</option>
+              <option value="70">Max 70 min</option>
+              <option value="80">Max 80 min</option>
+              <option value="90">Max 90 min</option>
+              <option value="105">Max 105 min</option>
+              <option value="120">Max 120 min</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="filter-row-sep"></div>
+      <div class="filter-block">
+        <div class="filter-cat-label">
+          <span class="filter-cat-icon">🏠</span>
+          <span class="filter-cat-text">Ejendom</span>
+        </div>
+        <div class="filter-inputs">
+          <div class="filter-group">
+            <label>Boligtype</label>
+            <div class="type-icon-group" id="type-icon-group"></div>
+          </div>
+          <div class="filter-group fg-minrooms">
+            <label>Min. rum</label>
+            <input type="number" id="f-minrooms" placeholder="1" min="1" max="10">
+          </div>
+          <div class="filter-group fg-maxrooms">
+            <label>Max. rum</label>
+            <input type="number" id="f-maxrooms" placeholder="10" min="1" max="10">
+          </div>
+          <div class="filter-group fg-energy">
+            <label>Energi</label>
+            <select id="f-energy">
+              <option value="">Alle</option>
+              <option value="A">A (kun A)</option>
+              <option value="B">B (A–B)</option>
+              <option value="C">C (A–C)</option>
+              <option value="D" selected>D (A–D)</option>
+              <option value="E">E (A–E)</option>
+              <option value="F">F (A–F)</option>
+              <option value="G">G (alle)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <!-- ── Beliggenhed ── -->
-      <div class="filter-section">Beliggenhed</div>
-      <div class="filter-group">
-        <label>Postnummer</label>
-        <input type="text" id="f-zip" placeholder="3300, 4200…">
+    <!-- Linje 2: Økonomi + Huslejedata -->
+    <div class="filter-row">
+      <div class="filter-block">
+        <div class="filter-cat-label">
+          <span class="filter-cat-icon">💰</span>
+          <span class="filter-cat-text">Økonomi</span>
+        </div>
+        <div class="filter-inputs">
+          <div class="filter-group fg-maxprice">
+            <label>Maks. pris</label>
+            <input type="number" id="f-maxprice" placeholder="2.500.000" step="50000">
+          </div>
+          <div class="filter-group fg-minyield">
+            <label>Min. afkast %</label>
+            <input type="number" id="f-minyield" placeholder="5" step="0.5" min="0" max="30">
+          </div>
+          <div class="filter-group fg-udbetal">
+            <label>Udbetaling</label>
+            <input type="number" id="f-udbetaling" value="300000" step="25000" min="0">
+          </div>
+          <div class="filter-group fg-yieldtype">
+            <label>Afkasttype</label>
+            <select id="f-yieldtype">
+              <option value="finansieret" selected>Finansieret</option>
+              <option value="teoretisk">Teoretisk (brutto)</option>
+              <option value="kontant">Afkast på kontantindsats</option>
+            </select>
+          </div>
+          <div class="filter-group fg-laantype">
+            <label>Lånetype</label>
+            <select id="f-laantype">
+              <option value="realkredit">Realkredit 4%</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="filter-group">
-        <label>Maks. køretid</label>
-        <select id="f-maxcommute">
-          <option value="">Alle</option>
-          <option value="20">Max 20 min</option>
-          <option value="25">Max 25 min</option>
-          <option value="30">Max 30 min</option>
-          <option value="35">Max 35 min</option>
-          <option value="40">Max 40 min</option>
-          <option value="45" selected>Max 45 min</option>
-          <option value="50">Max 50 min</option>
-          <option value="55">Max 55 min</option>
-          <option value="60">Max 60 min</option>
-          <option value="70">Max 70 min</option>
-          <option value="80">Max 80 min</option>
-          <option value="90">Max 90 min</option>
-          <option value="105">Max 105 min</option>
-          <option value="120">Max 120 min</option>
-        </select>
+      <div class="filter-row-sep"></div>
+      <div class="filter-block">
+        <div class="filter-cat-label">
+          <span class="filter-cat-icon">📊</span>
+          <span class="filter-cat-text">Huslejedata</span>
+        </div>
+        <div class="filter-inputs">
+          <div class="filter-group fg-minn">
+            <label>Lejedata</label>
+            <select id="f-minn">
+              <option value="0">Alle (inkl. tynde)</option>
+              <option value="5" selected>≥ 5 annoncer</option>
+              <option value="10">≥ 10 annoncer</option>
+              <option value="20">≥ 20 annoncer</option>
+            </select>
+          </div>
+          <div class="filter-group fg-unreg">
+            <label>Huslejeregler</label>
+            <select id="f-unreg">
+              <option value="">Alle</option>
+              <option value="1">Kun uregulerede</option>
+            </select>
+          </div>
+        </div>
       </div>
-
-      <!-- ── Ejendom ── -->
-      <div class="filter-section">Ejendom</div>
-      <div class="filter-group type-dd-wrapper">
-        <label>Boligtype</label>
-        <button class="type-dd-btn" id="type-dd-btn" type="button">
-          <span id="type-dd-label">Alle typer</span>
-          <span style="font-size:10px;opacity:.45">▾</span>
-        </button>
-        <div class="type-dd-panel" id="type-dd-panel"></div>
-      </div>
-      <div class="filter-group">
-        <label>Min. rum</label>
-        <input type="number" id="f-minrooms" placeholder="1" min="1" max="10">
-      </div>
-      <div class="filter-group">
-        <label>Max. rum</label>
-        <input type="number" id="f-maxrooms" placeholder="10" min="1" max="10">
-      </div>
-      <div class="filter-group">
-        <label>Energimærke (maks.)</label>
-        <select id="f-energy">
-          <option value="">Alle mærker</option>
-          <option value="A">A (kun A)</option>
-          <option value="B">B (A–B)</option>
-          <option value="C">C (A–C)</option>
-          <option value="D" selected>D (A–D)</option>
-          <option value="E">E (A–E)</option>
-          <option value="F">F (A–F)</option>
-          <option value="G">G (alle)</option>
-        </select>
-      </div>
-
-      <!-- ── Økonomi ── -->
-      <div class="filter-section">Økonomi</div>
-      <div class="filter-group">
-        <label>Maks. pris (kr)</label>
-        <input type="number" id="f-maxprice" placeholder="2.500.000" step="50000">
-      </div>
-      <div class="filter-group">
-        <label>Min. afkast %</label>
-        <input type="number" id="f-minyield" placeholder="5" step="0.5" min="0" max="30">
-      </div>
-      <div class="filter-group">
-        <label>Udbetaling (kr)</label>
-        <input type="number" id="f-udbetaling" value="300000" step="25000" min="0">
-      </div>
-      <div class="filter-group">
-        <label>Afkasttype</label>
-        <select id="f-yieldtype">
-          <option value="finansieret" selected>Finansieret</option>
-          <option value="teoretisk">Teoretisk (brutto)</option>
-          <option value="kontant">Afkast på kontantindsats</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Lånetype</label>
-        <select id="f-laantype">
-          <option value="realkredit">Realkredit 4%</option>
-        </select>
-      </div>
-
-      <!-- ── Data ── -->
-      <div class="filter-section">Data</div>
-      <div class="filter-group">
-        <label>Lejedata (min. n)</label>
-        <select id="f-minn">
-          <option value="0">Alle (inkl. tynde)</option>
-          <option value="5" selected>≥ 5 annoncer</option>
-          <option value="10">≥ 10 annoncer</option>
-          <option value="20">≥ 20 annoncer</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Huslejeregler</label>
-        <select id="f-unreg">
-          <option value="">Alle</option>
-          <option value="1">Kun uregulerede</option>
-        </select>
-      </div>
-
     </div>
     <!-- Footer kun synlig på mobil -->
     <div class="sheet-actions">
@@ -745,11 +806,21 @@
     </div>
   </div>
 
-  <!-- Altid synlig bar (desktop: under grid, mobil: eneste synlige del) -->
+  <!-- Linje 3: Nulstil + Vis alle + view-chips + tæller -->
   <div class="filter-bar">
     <button class="mobile-filter-btn" id="mobile-filter-btn">⚙️ Filtre</button>
+    <span class="filter-bar-label">Filter:</span>
     <button id="reset-btn">Nulstil</button>
     <button id="show-all-btn">Vis alle</button>
+    <div class="filter-bar-sep"></div>
+    <span class="filter-bar-label">Visning:</span>
+    <div class="chip-group">
+      <button class="chip active" id="alle-chip" data-filter="all">Alle</button>
+      <button class="chip" data-filter="favorite">⭐ Favoritter</button>
+      <button class="chip" id="disq-chip"  data-filter="disq">❌ Diskvalificerede</button>
+      <button class="chip" id="trash-chip" data-filter="trash" title="Vis skjulte ejendomme">🗑️</button>
+      <button class="chip" data-filter="edited">✏️ Redigerede</button>
+    </div>
     <span id="result-count"></span>
   </div>
 </div>
@@ -757,17 +828,6 @@
 <!-- Backdrop til bottom sheet -->
 <div id="filter-backdrop"></div>
 
-<!-- View-bar: Alle / Favoritter / Diskvalificerede / Trash / Redigerede -->
-<div class="view-bar">
-  <div class="chip-group">
-    <button class="chip active" id="alle-chip" data-filter="all">Alle</button>
-    <button class="chip" data-filter="favorite">⭐ Favoritter</button>
-    <button class="chip" id="disq-chip"  data-filter="disq">❌ Diskvalificerede</button>
-    <button class="chip" id="trash-chip" data-filter="trash" title="Vis skjulte ejendomme">🗑️</button>
-    <button class="chip" data-filter="edited">✏️ Redigerede</button>
-  </div>
-  <span id="view-result-count"></span>
-</div>
 
 <div id="table-wrapper">
   <div id="loading"><div class="spinner"></div><br>Henter ejendomsdata…</div>
@@ -1395,66 +1455,48 @@
     saveAnnotation(id, { status: next }).then(() => renderTable());
   }
 
-  // ── Boligtype dropdown ────────────────────────────────
-  const typeDdPanel = document.getElementById("type-dd-panel");
-  const typeDdBtn   = document.getElementById("type-dd-btn");
-  const typeDdLabel = document.getElementById("type-dd-label");
-
-  function updateTypeDdLabel() {
-    const all    = typeDdPanel.querySelectorAll(".type-dd-cb");
-    const active = [...typeDdPanel.querySelectorAll(".type-dd-cb:checked")];
-    if (!all.length || active.length === all.length) {
-      typeDdLabel.textContent = "Alle typer";
-      typeDdBtn.classList.remove("filtered");
-    } else {
-      typeDdLabel.textContent = active.length + " valgt";
-      typeDdBtn.classList.add("filtered");
-    }
-  }
+  // ── Boligtype icon-toggle knapper ────────────────────────────────
+  const typeIconGroup = document.getElementById("type-icon-group");
 
   function buildTypeDropdown(types) {
-    typeDdPanel.innerHTML = "";
-    types.forEach(t => {
-      const lbl = document.createElement("label");
-      lbl.className = "type-dd-item";
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.className = "type-dd-cb";
-      cb.dataset.type = t;
-      cb.checked = t !== "villalejlighed";
-      cb.addEventListener("change", () => {
+    const TYPE_ORDER = ["ejerlejlighed","villa","rækkehus","landejendom","villalejlighed"];
+    const sorted = [...types].sort((a,b) => {
+      const ai = TYPE_ORDER.indexOf(a), bi = TYPE_ORDER.indexOf(b);
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    });
+    typeIconGroup.innerHTML = "";
+    sorted.forEach(t => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "type-icon-btn" + (t !== "villalejlighed" ? " active" : "");
+      btn.dataset.type = t;
+      btn.title = TYPE_DA[t] || t;
+      btn.textContent = TYPE_ICON[t] || "🏠";
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("active");
         renderTable();
         updateFilterBadge();
-        updateTypeDdLabel();
       });
-      lbl.appendChild(cb);
-      lbl.appendChild(document.createTextNode(" " + (TYPE_ICON[t] || "") + " " + (TYPE_DA[t] || t)));
-      typeDdPanel.appendChild(lbl);
+      typeIconGroup.appendChild(btn);
     });
-    updateTypeDdLabel();
   }
 
-  typeDdBtn.addEventListener("click", e => {
-    e.stopPropagation();
-    typeDdPanel.classList.toggle("open");
-  });
+  // Dummy — bruges ikke længere men kan kaldes fra filterBadge-kode
   document.addEventListener("click", e => {
-    if (!typeDdPanel.contains(e.target) && e.target !== typeDdBtn)
-      typeDdPanel.classList.remove("open");
+    void e;
   });
 
   function getSelectedTypes() {
-    const all    = typeDdPanel.querySelectorAll(".type-dd-cb");
-    const active = [...typeDdPanel.querySelectorAll(".type-dd-cb:checked")];
+    const all    = typeIconGroup.querySelectorAll(".type-icon-btn");
+    const active = [...typeIconGroup.querySelectorAll(".type-icon-btn.active")];
     if (!all.length || active.length === all.length) return null; // ingen filtrering
-    return new Set(active.map(c => c.dataset.type));
+    return new Set(active.map(b => b.dataset.type));
   }
 
   function resetTypeChips() {
-    typeDdPanel.querySelectorAll(".type-dd-cb").forEach(cb => {
-      cb.checked = cb.dataset.type !== "villalejlighed";
+    typeIconGroup.querySelectorAll(".type-icon-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.type !== "villalejlighed");
     });
-    updateTypeDdLabel();
   }
 
   // ── Filter ────────────────────────────────────────────
@@ -1569,9 +1611,7 @@
   function renderTable() {
     const filtered = getFiltered();
     const sorted   = getSorted(filtered);
-    const countTxt = `${sorted.length} boliger`;
-    document.getElementById("result-count").textContent = countTxt;
-    document.getElementById("view-result-count").textContent = countTxt;
+    document.getElementById("result-count").textContent = `${sorted.length} boliger`;
     if (typeof updateFilterBadge === "function") updateFilterBadge();
 
     const tbody = document.getElementById("table-body");
@@ -2076,8 +2116,7 @@
     document.getElementById("f-yieldtype").value="finansieret";
     document.getElementById("f-unreg").value="";
     // Alle boligtyper aktive inkl. villalejlighed
-    typeDdPanel.querySelectorAll(".type-dd-cb").forEach(cb => { cb.checked = true; });
-    updateTypeDdLabel();
+    typeIconGroup.querySelectorAll(".type-icon-btn").forEach(btn => btn.classList.add("active"));
     setChipFilter("all");
     renderTable();
     updateFilterBadge();
@@ -2093,6 +2132,7 @@
 
   document.getElementById("reset-btn").addEventListener("click", doReset);
   document.getElementById("show-all-btn").addEventListener("click", doShowAll);
+
 
   // ── Mobil sort-bar ────────────────────────────────────
   document.getElementById("mobile-sort-select").addEventListener("change", e => {
