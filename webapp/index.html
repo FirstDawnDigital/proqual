@@ -911,7 +911,8 @@
 
   // ── State ─────────────────────────────────────────────
   let allData    = [];
-  let annotations = {};   // property_id → annotation obj
+  let annotations = {};        // property_id → annotation obj
+  let annotationsLoaded = false; // guards mod data-loss hvis fetch fejler
   let sortCol    = "yield_v2_pct";
   let sortDir    = "desc";
   let statusFilter = "all";  // all | favorite | disqualified
@@ -1179,7 +1180,12 @@
       // Annotations er valgfrit — fejl her blokerer ikke siden
       try {
         const annRes = await apiFetch("/api/annotations");
-        if (annRes.ok) annotations = await annRes.json();
+        if (annRes.ok) {
+          annotations = await annRes.json();
+          annotationsLoaded = true;
+        } else {
+          console.warn("Annotations endpoint svarede", annRes.status, "— gem er deaktiveret");
+        }
       } catch (e) {
         console.warn("Annotations endpoint ikke tilgængeligt:", e);
       }
@@ -1213,6 +1219,13 @@
 
   // ── Save annotation ───────────────────────────────────
   async function saveAnnotation(id, patch) {
+    // Guard: hvis annotations ikke loadede korrekt, afvis gem for at undgå
+    // at overskrive eksisterende Turso-data med tomme defaults.
+    if (!annotationsLoaded) {
+      console.warn("[annotation save] Afvist — annotations ikke loadet endnu. Prøv at genindlæse siden.");
+      alert("⚠️ Dine gemte attributter er ikke loadet korrekt fra serveren.\nGenindlæs siden (F5) og prøv igen.");
+      return;
+    }
     const current = getAnnotation(id);
     const updated = { ...current, ...patch };
     annotations[id] = updated;
