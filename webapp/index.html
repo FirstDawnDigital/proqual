@@ -81,7 +81,7 @@
 
     /* ── Table wrapper ── */
     #table-wrapper { overflow-x: auto; overflow-y: auto; flex: 1 1 auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 960px; }
+    table { width: 100%; border-collapse: collapse; min-width: 960px; table-layout: fixed; }
     thead { background: #f1f5f9; position: sticky; top: 0; z-index: 100; }
     th {
       padding: 8px 10px; text-align: left;
@@ -112,6 +112,25 @@
     tr.active-row td:first-child { border-left: 3px solid var(--blue); }
     tr.active-row:hover td { background: #e0f2fe; }
 
+    /* ── Diskvalificerings-popup ── */
+    #disq-popup {
+      display: none; position: fixed; z-index: 500;
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 10px 12px; width: 260px;
+    }
+    #disq-popup.open { display: block; }
+    #disq-popup label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+    #disq-popup input { width: 100%; box-sizing: border-box; padding: 5px 8px;
+      border: 1px solid var(--border); border-radius: 5px; font-size: 12px; }
+    #disq-popup input:focus { outline: none; border-color: var(--blue); }
+    #disq-popup .popup-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+    #disq-popup .popup-actions button { font-size: 12px; padding: 4px 10px; border-radius: 5px; cursor: pointer; border: 1px solid var(--border); background: #fff; }
+    #disq-popup .popup-actions .btn-ok { background: var(--blue); color: #fff; border-color: var(--blue); }
+    /* Årsag under adresse */
+    .disq-reason { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 3px; }
+    .disq-reason-edit { background: none; border: none; cursor: pointer; font-size: 10px; opacity: 0.5; padding: 0; line-height: 1; }
+    .disq-reason-edit:hover { opacity: 1; }
+
     /* ── Status-knap ── */
     /* Individuelle status-ikoner i listevisning */
     .status-icons { display:flex; gap:2px; align-items:center; }
@@ -134,7 +153,7 @@
     .status-btn[data-status="pinned"]       { opacity: 1; }
 
     /* ── Adresse ── */
-    .cell-addr { max-width: 190px; }
+    .cell-addr { overflow: hidden; }
     .cell-addr a {
       font-weight: 600; font-size: 13px; color: var(--blue);
       text-decoration: none; display: block; line-height: 1.3;
@@ -701,18 +720,18 @@
   <table id="prop-table" style="display:none">
     <thead>
       <tr>
-        <th style="width:80px"></th>
-        <th data-col="address">Adresse <span class="si"></span></th>
-        <th data-col="property_type">Type <span class="si"></span></th>
-        <th data-col="days_on_market" class="num" data-default-dir="asc" title="Sorter: nyeste først">Liggetid <span class="si"></span></th>
-        <th data-col="energy_label" style="text-align:center">Energi <span class="si"></span></th>
-        <th data-col="price" class="num">Totalpris <span class="si"></span></th>
-        <th class="num">Finansiering</th>
-        <th data-col="owner_costs_monthly" class="num">Drift <span class="si"></span></th>
-        <th data-col="est_leje_sqm" class="num">Leje/md <span class="si"></span></th>
-        <th class="num">Cashflow</th>
-        <th data-col="yield_v2_pct" class="num sort-desc">Afkast% <span class="si"></span></th>
-        <th data-col="commute_minutes" class="num">Køretid <span class="si"></span></th>
+        <th style="width:82px"></th>
+        <th data-col="address" style="width:180px">Adresse <span class="si"></span></th>
+        <th data-col="property_type" style="width:100px">Type <span class="si"></span></th>
+        <th data-col="days_on_market" class="num" style="width:68px" data-default-dir="asc" title="Sorter: nyeste først">Liggetid <span class="si"></span></th>
+        <th data-col="energy_label" style="width:58px;text-align:center">Energi <span class="si"></span></th>
+        <th data-col="price" class="num" style="width:130px">Totalpris <span class="si"></span></th>
+        <th class="num" style="width:120px">Finansiering</th>
+        <th data-col="owner_costs_monthly" class="num" style="width:110px">Drift <span class="si"></span></th>
+        <th data-col="est_leje_sqm" class="num" style="width:110px">Leje/md <span class="si"></span></th>
+        <th class="num" style="width:100px">Cashflow</th>
+        <th data-col="yield_v2_pct" class="num sort-desc" style="width:72px">Afkast% <span class="si"></span></th>
+        <th data-col="commute_minutes" class="num" style="width:82px">Køretid <span class="si"></span></th>
       </tr>
     </thead>
     <tbody id="table-body"></tbody>
@@ -820,6 +839,16 @@
         <button class="btn-save"   id="leje-modal-save">Gem</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Diskvalificerings-popup (skal stå før <script> så getElementById virker) -->
+<div id="disq-popup">
+  <label>Årsag til diskvalificering</label>
+  <input id="disq-reason-input" type="text" maxlength="120" placeholder="F.eks. for stor, dårlig beliggenhed…">
+  <div class="popup-actions">
+    <button id="disq-popup-cancel">Annuller</button>
+    <button id="disq-popup-ok" class="btn-ok">Gem</button>
   </div>
 </div>
 
@@ -974,7 +1003,7 @@
   }
 
   function getAnnotation(id) {
-    return annotations[id] || { status:"neutral", pinned:0, renovation_items:[], renovation_status:"none", notes:"", custom_leje:null, custom_leje_note:"", custom_price:null, custom_price_note:"", trashed:0 };
+    return annotations[id] || { status:"neutral", pinned:0, disq_reason:"", renovation_items:[], renovation_status:"none", notes:"", custom_leje:null, custom_leje_note:"", custom_price:null, custom_price_note:"", trashed:0 };
   }
 
   // Effektiv månedsleje: bruger manuel override → V2-model → m²-metode (fallback)
@@ -1254,7 +1283,52 @@
   }
 
   // ── Cycle status ──────────────────────────────────────
-  // Cycle: neutral → favorite → disqualified → pinned → neutral
+  // ── Diskvalificerings-popup ─────────────────────────────
+  const disqPopup      = document.getElementById("disq-popup");
+  const disqReasonInput = document.getElementById("disq-reason-input");
+  let _disqPendingId   = null;
+
+  function openDisqPopup(id, anchorEl) {
+    _disqPendingId = id;
+    const ann = getAnnotation(id);
+    disqReasonInput.value = ann.disq_reason || "";
+    // Positionér ved knappen
+    const rect = anchorEl.getBoundingClientRect();
+    disqPopup.style.top  = (rect.bottom + window.scrollY + 4) + "px";
+    disqPopup.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 280) + "px";
+    disqPopup.classList.add("open");
+    disqReasonInput.focus();
+    disqReasonInput.select();
+  }
+
+  function closeDisqPopup() {
+    disqPopup.classList.remove("open");
+    _disqPendingId = null;
+  }
+
+  document.getElementById("disq-popup-cancel").addEventListener("click", closeDisqPopup);
+
+  function saveDisqReason() {
+    if (_disqPendingId == null) return;
+    const id = _disqPendingId;
+    const reason = disqReasonInput.value.trim();
+    closeDisqPopup();
+    activeRowId = id;
+    saveAnnotation(id, { status: "disqualified", disq_reason: reason }).then(() => renderTable());
+  }
+
+  document.getElementById("disq-popup-ok").addEventListener("click", saveDisqReason);
+  disqReasonInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") saveDisqReason();
+    if (e.key === "Escape") closeDisqPopup();
+  });
+
+  // Luk popup ved klik udenfor
+  document.addEventListener("click", e => {
+    if (disqPopup.classList.contains("open") && !disqPopup.contains(e.target) && !e.target.closest("[data-si='disqualified'], [data-si='disq-edit']"))
+      closeDisqPopup();
+  }, true);
+
   function buildAnnTooltip(id) {
     const ann = getAnnotation(id);
     const lines = [];
@@ -1433,7 +1507,11 @@
         ? `<a href="https://www.boligsiden.dk/postnummer/${esc(p.zip_code)}/solgte" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted">${esc(p.zip_code)}</a>`
         : "";
       const locHtml = [zipLink, p.city ? esc(p.city) : ""].filter(Boolean).join("\u00a0");
-
+      const disqReasonHtml = (ann.status === "disqualified" && ann.disq_reason)
+        ? `<span class="disq-reason"><span>${esc(ann.disq_reason)}</span><button class="disq-reason-edit" data-si="disq-edit" data-id="${p.id}" title="Rediger årsag">✏️</button></span>`
+        : (ann.status === "disqualified"
+          ? `<span class="disq-reason"><button class="disq-reason-edit" data-si="disq-edit" data-id="${p.id}" title="Tilføj årsag" style="opacity:0.35">✏️</button></span>`
+          : "");
 
       // Type + huslejeregler badge
       const icon    = TYPE_ICON[p.property_type] || "🏠";
@@ -1554,7 +1632,7 @@
 
       tr.innerHTML = `
         <td style="text-align:center;padding:4px 2px">${statusIcons}</td>
-        <td class="cell-addr">${addrHtml}<span class="loc">${locHtml}</span></td>
+        <td class="cell-addr">${addrHtml}<span class="loc">${locHtml}</span>${disqReasonHtml}</td>
         <td class="cell-type"><span class="type-icon" title="${typeDA}" data-ann-id="${p.id}" data-default-title="${typeDA}">${icon}${unregBadge}</span><span class="type-sub">${esc(typeSub)}</span></td>
         <td class="num">${domCell(p.days_on_market)}</td>
         <td style="text-align:center">${energyHtml}</td>
@@ -1588,6 +1666,18 @@
             const curAnn = getAnnotation(id);
             activeRowId = id;
             saveAnnotation(id, { pinned: curAnn.pinned ? 0 : 1 }).then(() => renderTable());
+            return;
+          }
+          if (action === "disqualified") {
+            const cur = getAnnotation(id).status;
+            if (cur === "disqualified") {
+              // Fjern diskvalificering
+              activeRowId = id;
+              saveAnnotation(id, { status: "neutral", disq_reason: "" }).then(() => renderTable());
+            } else {
+              // Åbn popup for årsag
+              openDisqPopup(id, btn);
+            }
             return;
           }
           const cur = getAnnotation(id).status;
@@ -1799,6 +1889,14 @@
     if (!icon) return;
     const tip = buildAnnTooltip(parseInt(icon.dataset.annId));
     icon.title = tip || icon.dataset.defaultTitle || "";
+  });
+
+  // Blyant-klik til at redigere diskvalificeringsårsag (event delegation)
+  document.getElementById("table-body").addEventListener("click", e => {
+    const btn = e.target.closest("[data-si='disq-edit']");
+    if (!btn) return;
+    e.stopPropagation();
+    openDisqPopup(parseInt(btn.dataset.id), btn);
   });
 
   function updateSortIndicators() {
@@ -2250,5 +2348,6 @@
     showPasswordPrompt(loadData);
   }
 </script>
+
 </body>
 </html>
