@@ -1292,10 +1292,12 @@
     _disqPendingId = id;
     const ann = getAnnotation(id);
     disqReasonInput.value = ann.disq_reason || "";
-    // Positionér ved knappen
+    // Positionér ved knappen — fixed er relativ til viewport, ingen scrollY
     const rect = anchorEl.getBoundingClientRect();
-    disqPopup.style.top  = (rect.bottom + window.scrollY + 4) + "px";
-    disqPopup.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 280) + "px";
+    const top  = rect.bottom + 4;
+    const left = Math.min(rect.left, window.innerWidth - 284);
+    disqPopup.style.top  = top  + "px";
+    disqPopup.style.left = left + "px";
     disqPopup.classList.add("open");
     disqReasonInput.focus();
     disqReasonInput.select();
