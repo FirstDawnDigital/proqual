@@ -63,6 +63,11 @@
       border: none; border-radius: 6px; font-size: 12px; cursor: pointer;
     }
     #reset-btn:hover { opacity: 0.82; }
+    #show-all-btn {
+      padding: 5px 12px; background: #fff; color: var(--accent);
+      border: 1px solid var(--accent); border-radius: 6px; font-size: 12px; cursor: pointer;
+    }
+    #show-all-btn:hover { background: #f0f9ff; }
     #result-count { font-size: 12px; color: var(--muted); }
 
     /* Status-filter chips */
@@ -370,6 +375,15 @@
     }
 
     /* ── Kortvisning (mobil) ── */
+    #mobile-sort-bar {
+      display: none; align-items: center; gap: 8px;
+      padding: 6px 12px; font-size: 12px; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    #mobile-sort-bar select {
+      font-size: 12px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 3px 6px; background: #fff; color: var(--text);
+    }
     #cards-container { display: none; padding: 8px; }
 
     .prop-card {
@@ -422,6 +436,7 @@
     @media (max-width: 700px) {
       #prop-table     { display: none !important; }
       #cards-container { display: block; }
+      #mobile-sort-bar { display: flex; }
     }
 
     /* ── Loading / empty ── */
@@ -656,11 +671,12 @@
   <div class="filter-bar">
     <button class="mobile-filter-btn" id="mobile-filter-btn">⚙️ Filtre</button>
     <button id="reset-btn">Nulstil</button>
+    <button id="show-all-btn">Vis alle</button>
     <div class="chip-group">
       <button class="chip active" data-status-filter="all">Alle</button>
       <button class="chip" data-status-filter="favorite">⭐ Favoritter</button>
       <button class="chip" data-status-filter="pinned">📌 Pinned</button>
-      <button class="chip" data-status-filter="disqualified">❌ Diskvalificerede</button>
+      <button class="chip" id="disq-chip" data-disq-state="0">❌ Diskvalificerede</button>
       <button class="chip" data-status-filter="edited">✏️ Redigerede</button>
     </div>
     <span id="result-count"></span>
@@ -692,6 +708,16 @@
     </thead>
     <tbody id="table-body"></tbody>
   </table>
+  <div id="mobile-sort-bar">
+    Sorter:
+    <select id="mobile-sort-select">
+      <option value="yield_v2_pct|desc">Afkast% ↓</option>
+      <option value="days_on_market|asc">Nyeste først</option>
+      <option value="price|asc">Pris ↑</option>
+      <option value="price|desc">Pris ↓</option>
+      <option value="commute_minutes|asc">Køretid ↑</option>
+    </select>
+  </div>
   <div id="cards-container"></div>
 </div>
 
@@ -1207,9 +1233,24 @@
 
   // ── Cycle status ──────────────────────────────────────
   // Cycle: neutral → favorite → disqualified → pinned → neutral
+  function buildAnnTooltip(id) {
+    const ann = getAnnotation(id);
+    const lines = [];
+    if (ann.status === "favorite")     lines.push("⭐ Favorit");
+    if (ann.status === "pinned")       lines.push("📌 Pinned");
+    if (ann.status === "disqualified") lines.push("❌ Diskvalificeret");
+    if (ann.custom_price  > 0) lines.push(`💰 Forhandlet pris: ${fmt(ann.custom_price)} kr`);
+    if (ann.custom_leje   > 0) lines.push(`🏠 Manuel leje: ${fmt(ann.custom_leje)} kr/md`);
+    if (ann.renovation_items?.length)  lines.push(`🔨 Renovering: ${ann.renovation_items.length} post(er)`);
+    if (ann.notes?.trim())             lines.push(`📝 Note: ${ann.notes.trim().slice(0,60)}${ann.notes.length>60?"…":""}`);
+    return lines.length ? lines.join("\n") : null;
+  }
+
   function cycleStatus(id) {
     const cur = getAnnotation(id).status;
     const next = { neutral:"favorite", favorite:"disqualified", disqualified:"pinned", pinned:"neutral" }[cur] || "favorite";
+    // Lås rækken i view så ejendommen ikke forsvinder ved filterskift
+    activeRowId = id;
     saveAnnotation(id, { status: next }).then(() => renderTable());
   }
 
@@ -1250,9 +1291,8 @@
       const ann = getAnnotation(p.id);
 
       // Status-filter chips
-      if (statusFilter === "favorite"     && ann.status !== "favorite")     return false;
-      if (statusFilter === "disqualified" && ann.status !== "disqualified") return false;
-      if (statusFilter === "pinned"       && ann.status !== "pinned")       return false;
+      if (statusFilter === "favorite" && ann.status !== "favorite") return false;
+      if (statusFilter === "pinned"   && ann.status !== "pinned")   return false;
       if (statusFilter === "edited") {
         const hasEdit = ann.status !== "neutral"
           || (ann.renovation_items && ann.renovation_items.length > 0)
@@ -1263,7 +1303,11 @@
         if (!hasEdit) return false;
       }
 
-      // Aktiv række og pinned bypasser alle filtre
+      // Diskvalificerede 3-state: 0=standard skjul, 1=eksplicit skjul, 2=kun vis
+      if (disqState === 2 && ann.status !== "disqualified") return false;
+      if (disqState !== 2 && ann.status === "disqualified") return false;
+
+      // Aktiv række og pinned bypasser øvrige filtre
       if (p.id === activeRowId) return true;
       if (ann.status === "pinned" && statusFilter === "all") return true;
 
@@ -1384,27 +1428,39 @@
       const { laan, ydelse, ratio } = computeLoan(adjPrice, udbetaling);
       const loanRisk = ratio > 0.80;
 
-      // Totalpris — klikbar, farvekode på renovering, kr/m² udtonet nedenunder
-      const sqmPris = adjPrice > 0 && p.size_sqm > 0 ? Math.round(adjPrice / p.size_sqm) : null;
+      // Totalpris — ny rækkefølge:
+      // 1) Totalpris (primær) 2) Udbudspris + prisnedsættelse 3) Forhandlet pris 4) Renovering
+      const sqmPris    = adjPrice > 0 && p.size_sqm > 0 ? Math.round(adjPrice / p.size_sqm) : null;
+      const hasDrop    = p.price_change_count > 0 && p.price_change_amount < 0;
+      const isModified = hasCustomPrice || total > 0;
+
       let priceInner;
-      if (hasCustomPrice) {
-        priceInner = `<div class="price-adjusted">${fmt(p.price)}\u00a0kr</div>`
-                   + `<div style="font-size:13px;font-weight:700;color:#d97706">${fmt(basePrice)}\u00a0kr <span style="font-size:10px">✏️</span></div>`;
-        if (total > 0) {
-          priceInner += `<div class="price-renovated">${fmt(adjPrice)}\u00a0kr</div>`;
-        }
-      } else if (total > 0) {
-        priceInner = `<div class="price-adjusted">${fmt(p.price)}\u00a0kr</div>`
-                   + `<div class="price-renovated">${fmt(adjPrice)}\u00a0kr</div>`;
-      } else {
+      if (!isModified && !hasDrop) {
+        // Simpel case: kun udbudspris
         priceInner = `<div class="price-main">${fmt(p.price)}\u00a0kr</div>`;
+      } else {
+        // Linje 1: Totalpris (stor, primær)
+        priceInner = `<div class="price-main">${fmt(adjPrice)}\u00a0kr</div>`;
+        // Linje 2: Udbudspris + prisnedsættelse
+        const dropStr = hasDrop
+          ? ` <span class="badge-pricedrop" title="${p.price_change_count} prisnedsættelse(r): ${fmt(Math.abs(p.price_change_amount))} kr">↓ ${Math.round(Math.abs(p.price_change_amount)/1000)}k</span>`
+          : "";
+        priceInner += `<div class="price-sub" style="color:var(--muted)">Udbud: ${fmt(p.price)}\u00a0kr${dropStr}</div>`;
+        // Linje 3: Forhandlet pris (hvis sat)
+        if (hasCustomPrice) {
+          priceInner += `<div class="price-sub" style="color:#d97706">✏️ Bud: ${fmt(ann.custom_price)}\u00a0kr</div>`;
+        }
+        // Linje 4: Renoveringsomkostninger (hvis sat)
+        if (total > 0) {
+          priceInner += `<div class="price-sub" style="color:var(--blue)">🔨 +${fmt(total)}\u00a0kr reno</div>`;
+        }
+      }
+      // Prisnedsættelse i simpel case
+      if (!isModified && hasDrop) {
+        const dropK = Math.round(Math.abs(p.price_change_amount) / 1000);
+        priceInner += `<div class="badge-pricedrop" title="${fmt(Math.abs(p.price_change_amount))} kr">↓ ${dropK}k</div>`;
       }
       if (sqmPris) priceInner += `<div class="price-sub">${fmt(sqmPris)}\u00a0kr/m²</div>`;
-      if (p.price_change_count > 0 && p.price_change_amount < 0) {
-        const dropK = Math.round(Math.abs(p.price_change_amount) / 1000);
-        const times = p.price_change_count > 1 ? ` ×${p.price_change_count}` : "";
-        priceInner += `<div class="badge-pricedrop" title="${p.price_change_count} prisnedsættelse(r) på i alt ${fmt(Math.abs(p.price_change_amount))} kr">↓ ${dropK}k${times}</div>`;
-      }
       const priceHtml = `<button class="price-btn price-reno-${renoStatus}" data-reno-open="${p.id}" title="Klik for at estimere renovering">${priceInner}</button>`;
 
       // Finansieringskolonne
@@ -1468,7 +1524,7 @@
       tr.innerHTML = `
         <td style="text-align:center;padding:6px 4px">${statusBtn}</td>
         <td class="cell-addr">${addrHtml}<span class="loc">${locHtml}</span></td>
-        <td class="cell-type"><span class="type-icon" title="${typeDA}">${icon}${unregBadge}</span><span class="type-sub">${esc(typeSub)}</span></td>
+        <td class="cell-type"><span class="type-icon" title="${typeDA}" data-ann-id="${p.id}" data-default-title="${typeDA}">${icon}${unregBadge}</span><span class="type-sub">${esc(typeSub)}</span></td>
         <td class="num">${domCell(p.days_on_market)}</td>
         <td style="text-align:center">${energyHtml}</td>
         <td class="num">${priceHtml}</td>
@@ -1681,6 +1737,14 @@
   }
 
   // ── Sort headers ──────────────────────────────────────
+  // Dynamisk tooltip på type-ikon: viser manuelt satte attributter ved mouseover
+  document.getElementById("table-body").addEventListener("mouseover", e => {
+    const icon = e.target.closest("[data-ann-id]");
+    if (!icon) return;
+    const tip = buildAnnTooltip(parseInt(icon.dataset.annId));
+    icon.title = tip || icon.dataset.defaultTitle || "";
+  });
+
   function updateSortIndicators() {
     document.querySelectorAll("th[data-col]").forEach(th => {
       th.classList.remove("sort-asc","sort-desc");
@@ -1721,10 +1785,53 @@
     document.getElementById("f-yieldtype").value="finansieret";
     document.getElementById("f-unreg").value="";
     resetTypeChips();
+    setDisqState(0);
+    sortCol = "yield_v2_pct"; sortDir = "desc";
+    document.getElementById("mobile-sort-select").value = "yield_v2_pct|desc";
     renderTable();
     updateFilterBadge();
   }
+
+  function doShowAll() {
+    ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms"].forEach(id => { document.getElementById(id).value=""; });
+    document.getElementById("f-minn").value="0";
+    document.getElementById("f-energy").value="G";
+    document.getElementById("f-maxcommute").value="";
+    document.getElementById("f-udbetaling").value="300000";
+    document.getElementById("f-yieldtype").value="finansieret";
+    document.getElementById("f-unreg").value="";
+    // Alle boligtyper aktive inkl. villalejlighed
+    document.querySelectorAll(".type-chip").forEach(c => c.classList.add("active"));
+    setDisqState(0);
+    renderTable();
+    updateFilterBadge();
+  }
+
+  // ── Diskvalificerede 3-state chip ────────────────────────
+  // 0 = neutral (standard: skjuler diskvalificerede)
+  // 1 = skjul diskvalificerede  (eksplicit skjul)
+  // 2 = vis kun diskvalificerede
+  let disqState = 0;
+  const disqChip = document.getElementById("disq-chip");
+  const DISQ_LABELS = ["❌ Diskvalificerede", "🙈 Skjul diskval.", "❌ Kun diskval."];
+  function setDisqState(s) {
+    disqState = s;
+    disqChip.dataset.disqState = s;
+    disqChip.textContent = DISQ_LABELS[s];
+    disqChip.classList.toggle("active", s === 2);
+    renderTable();
+  }
+  disqChip.addEventListener("click", () => setDisqState((disqState + 1) % 3));
+
   document.getElementById("reset-btn").addEventListener("click", doReset);
+  document.getElementById("show-all-btn").addEventListener("click", doShowAll);
+
+  // ── Mobil sort-bar ────────────────────────────────────
+  document.getElementById("mobile-sort-select").addEventListener("change", e => {
+    const [col, dir] = e.target.value.split("|");
+    sortCol = col; sortDir = dir;
+    renderTable();
+  });
 
   // ── Mobil bottom sheet ─────────────────────────────────
   const filterSheet    = document.getElementById("filter-sheet");
