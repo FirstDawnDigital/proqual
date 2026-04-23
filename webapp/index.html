@@ -113,6 +113,15 @@
     tr.active-row:hover td { background: #e0f2fe; }
 
     /* ── Status-knap ── */
+    /* Individuelle status-ikoner i listevisning */
+    .status-icons { display:flex; gap:2px; align-items:center; }
+    .si-btn { background:none; border:none; cursor:pointer; font-size:14px; padding:2px 3px;
+              line-height:1; border-radius:3px; opacity:0.2; transition:opacity .15s,transform .1s; }
+    .si-btn.active { opacity:1; }
+    .si-btn:hover { opacity:0.7; transform:scale(1.2); }
+    .si-btn.active:hover { opacity:1; transform:scale(1.2); }
+    .si-btn.trash { font-size:12px; }
+    .si-btn.trash:hover { opacity:0.8; }
     .status-btn {
       font-size: 18px; background: none; border: none; cursor: pointer;
       padding: 2px; border-radius: 4px; line-height: 1;
@@ -673,11 +682,11 @@
     <button id="reset-btn">Nulstil</button>
     <button id="show-all-btn">Vis alle</button>
     <div class="chip-group">
-      <button class="chip active" data-status-filter="all">Alle</button>
-      <button class="chip" data-status-filter="favorite">⭐ Favoritter</button>
-      <button class="chip" data-status-filter="pinned">📌 Pinned</button>
-      <button class="chip" id="disq-chip" data-disq-state="0">❌ Diskvalificerede</button>
-      <button class="chip" data-status-filter="edited">✏️ Redigerede</button>
+      <button class="chip active" id="alle-chip"  data-filter="all">Alle</button>
+      <button class="chip" data-filter="favorite">⭐ Favoritter</button>
+      <button class="chip" id="disq-chip"  data-filter="disq">❌ Diskvalificerede</button>
+      <button class="chip" id="trash-chip" data-filter="trash" title="Vis skjulte ejendomme">🗑️</button>
+      <button class="chip" data-filter="edited">✏️ Redigerede</button>
     </div>
     <span id="result-count"></span>
   </div>
@@ -692,7 +701,7 @@
   <table id="prop-table" style="display:none">
     <thead>
       <tr>
-        <th style="width:36px"></th>
+        <th style="width:80px"></th>
         <th data-col="address">Adresse <span class="si"></span></th>
         <th data-col="property_type">Type <span class="si"></span></th>
         <th data-col="days_on_market" class="num" data-default-dir="asc" title="Sorter: nyeste først">Liggetid <span class="si"></span></th>
@@ -965,7 +974,7 @@
   }
 
   function getAnnotation(id) {
-    return annotations[id] || { status:"neutral", renovation_items:[], renovation_status:"none", notes:"", custom_leje:null, custom_leje_note:"", custom_price:null, custom_price_note:"" };
+    return annotations[id] || { status:"neutral", pinned:0, renovation_items:[], renovation_status:"none", notes:"", custom_leje:null, custom_leje_note:"", custom_price:null, custom_price_note:"", trashed:0 };
   }
 
   // Effektiv månedsleje: bruger manuel override → V2-model → m²-metode (fallback)
@@ -1303,11 +1312,15 @@
     return allData.filter(p => {
       const ann = getAnnotation(p.id);
 
+      // Trash-mode: vis kun trashede / skjul trashede (default)
+      if (trashState === 1 && !ann.trashed) return false;
+      if (trashState === 0 &&  ann.trashed) return false;
+
       // Status-filter chips
       if (statusFilter === "favorite" && ann.status !== "favorite") return false;
-      if (statusFilter === "pinned"   && ann.status !== "pinned")   return false;
       if (statusFilter === "edited") {
         const hasEdit = ann.status !== "neutral"
+          || ann.pinned
           || (ann.renovation_items && ann.renovation_items.length > 0)
           || ann.renovation_status !== "none"
           || (ann.custom_leje && ann.custom_leje > 0)
@@ -1316,13 +1329,12 @@
         if (!hasEdit) return false;
       }
 
-      // Diskvalificerede 3-state: 0=standard skjul, 1=eksplicit skjul, 2=kun vis
-      if (disqState === 2 && ann.status !== "disqualified") return false;
-      if (disqState === 1 && ann.status === "disqualified") return false;
+      // Diskvalificerede on/off: 0=vis (dimmet), 1=kun vis
+      if (disqState === 1 && ann.status !== "disqualified") return false;
 
-      // Aktiv række og pinned bypasser øvrige filtre
+      // Aktiv række og pinned bypasser øvrige filtre (medmindre trash-mode)
       if (p.id === activeRowId) return true;
-      if (ann.status === "pinned" && statusFilter === "all") return true;
+      if (ann.pinned && trashState === 0) return true;
 
       if (zips.length && !zips.some(z => p.zip_code===z))  return false;
       // Boligtype multi-select
@@ -1363,10 +1375,12 @@
 
   function getSorted(rows) {
     return [...rows].sort((a,b) => {
-      // Pinned items vises altid øverst
-      const aPinned = getAnnotation(a.id).status === "pinned";
-      const bPinned = getAnnotation(b.id).status === "pinned";
-      if (aPinned !== bPinned) return aPinned ? -1 : 1;
+      // Pinned items vises øverst (medmindre trash-mode)
+      if (trashState === 0) {
+        const aPinned = !!getAnnotation(a.id).pinned;
+        const bPinned = !!getAnnotation(b.id).pinned;
+        if (aPinned !== bPinned) return aPinned ? -1 : 1;
+      }
 
       let av, bv;
       if (sortCol === "yield_v2_pct") {
@@ -1521,21 +1535,25 @@
       const distHtml = `<span style="font-size:12px;color:var(--muted);margin-right:4px">${driveTxt}</span>`
                      + `<a class="dist-link" href="${mapsUrl(p.address)}" target="_blank" rel="noopener">🗺️</a>`;
 
-      // Status-knap
-      const statusIcon = ann.status==="disqualified" ? "❌" : ann.status==="pinned" ? "📌" : "⭐";
-      const statusTitle = ann.status==="favorite"     ? "Favorit — klik for diskvalificer"
-                        : ann.status==="disqualified" ? "Diskvalificeret — klik for pin"
-                        : ann.status==="pinned"       ? "Pinned — klik for neutral"
-                        : "Klik for favorit";
-      const statusBtn  = `<button class="status-btn" data-status="${ann.status}" data-id="${p.id}" title="${statusTitle}">${statusIcon}</button>`;
+      // Individuelle status-ikoner
+      const isFav  = ann.status === "favorite";
+      const isPin  = !!ann.pinned;
+      const isDisq = ann.status === "disqualified";
+      const showTrash = disqState === 1 || trashState === 1;
+      const statusIcons = `<div class="status-icons">
+        <button class="si-btn${isFav?' active':''}" data-si="favorite" data-id="${p.id}" title="${isFav?'Fjern favorit':'Sæt som favorit'}">⭐</button>
+        <button class="si-btn${isPin?' active':''}" data-si="pinned"   data-id="${p.id}" title="${isPin?'Fjern pin':'Pin øverst'}">📌</button>
+        <button class="si-btn${isDisq?' active':''}" data-si="disqualified" data-id="${p.id}" title="${isDisq?'Fjern diskvalificering':'Diskvalificer'}">❌</button>
+        ${showTrash?`<button class="si-btn trash" data-si="trash" data-id="${p.id}" title="${ann.trashed?'Gendan fra trash':'Skjul permanent'}">${ann.trashed?'↩️':'🗑️'}</button>`:''}
+      </div>`;
 
       const tr = document.createElement("tr");
       if (ann.status==="disqualified") tr.classList.add("disqualified");
-      if (ann.status==="pinned")       tr.classList.add("pinned");
+      if (ann.pinned)                  tr.classList.add("pinned");
       if (p.id === activeRowId)        tr.classList.add("active-row");
 
       tr.innerHTML = `
-        <td style="text-align:center;padding:6px 4px">${statusBtn}</td>
+        <td style="text-align:center;padding:4px 2px">${statusIcons}</td>
         <td class="cell-addr">${addrHtml}<span class="loc">${locHtml}</span></td>
         <td class="cell-type"><span class="type-icon" title="${typeDA}" data-ann-id="${p.id}" data-default-title="${typeDA}">${icon}${unregBadge}</span><span class="type-sub">${esc(typeSub)}</span></td>
         <td class="num">${domCell(p.days_on_market)}</td>
@@ -1549,10 +1567,34 @@
         <td class="num">${distHtml}</td>
       `;
 
-      // Status klik
-      tr.querySelector(".status-btn").addEventListener("click", e => {
-        e.stopPropagation();
-        cycleStatus(p.id);
+      // Individuelle status-ikoner klik
+      tr.querySelectorAll(".si-btn").forEach(btn => {
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          const action = btn.dataset.si;
+          const id = p.id;
+          if (action === "trash") {
+            const curAnn = getAnnotation(id);
+            if (curAnn.trashed) {
+              // Gendan fra trash
+              saveAnnotation(id, { trashed: 0 }).then(() => renderTable());
+            } else if (confirm("Skjul ejendommen permanent? Brug 🗑️-knappen øverst for at gendanne.")) {
+              activeRowId = null;
+              saveAnnotation(id, { trashed: 1 }).then(() => renderTable());
+            }
+            return;
+          }
+          if (action === "pinned") {
+            const curAnn = getAnnotation(id);
+            activeRowId = id;
+            saveAnnotation(id, { pinned: curAnn.pinned ? 0 : 1 }).then(() => renderTable());
+            return;
+          }
+          const cur = getAnnotation(id).status;
+          const next = (cur === action) ? "neutral" : action;
+          activeRowId = id;
+          saveAnnotation(id, { status: next }).then(() => renderTable());
+        });
       });
 
       // Leje: hover = tooltip, klik = override modal
@@ -1578,6 +1620,7 @@
 
       // Klik på rækken (ikke på knapper/links) toggler aktiv-lås
       tr.addEventListener("click", e => {
+        if (window.getSelection().toString().length > 0) return; // brugeren markerer tekst
         const tag = e.target.tagName;
         if (tag === "A" || tag === "BUTTON" || e.target.closest("button, a")) return;
         activeRowId = (activeRowId === p.id) ? null : p.id;
@@ -1773,13 +1816,39 @@
     });
   });
 
-  // ── Status-filter chips ───────────────────────────────
-  document.querySelectorAll("[data-status-filter]").forEach(btn => {
+  // ── Unified chip-filter ───────────────────────────────
+  // Alle 5 chips (Alle/Favoritter/Diskvalificerede/Trash/Redigerede) opfører sig
+  // ens: ét aktivt ad gangen. Klik på aktivt chip → tilbage til "Alle".
+  const ALL_CHIPS = document.querySelectorAll(".chip-group .chip");
+
+  function setChipFilter(filter) {
+    // Nulstil alle states
+    statusFilter = "all";
+    disqState    = 0;
+    trashState   = 0;
+
+    // Sæt den valgte state
+    if (filter === "favorite")      statusFilter = "favorite";
+    else if (filter === "edited")   statusFilter = "edited";
+    else if (filter === "disq")     disqState    = 1;
+    else if (filter === "trash")    trashState   = 1;
+    // "all" → ingen ændring (alle nulstillet ovenfor)
+
+    // Opdater highlight
+    ALL_CHIPS.forEach(c => c.classList.remove("active"));
+    const active = document.querySelector(`.chip-group .chip[data-filter="${filter}"]`);
+    if (active) active.classList.add("active");
+
+    renderTable();
+  }
+
+  // Giv alle chips en data-filter attribut og ét click-listener
+  document.querySelectorAll(".chip-group .chip").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll("[data-status-filter]").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      statusFilter = btn.dataset.statusFilter;
-      renderTable();
+      const f = btn.dataset.filter;
+      // Klik på allerede aktiv chip → tilbage til Alle
+      const isActive = btn.classList.contains("active");
+      setChipFilter(isActive && f !== "all" ? "all" : f);
     });
   });
 
@@ -1798,7 +1867,7 @@
     document.getElementById("f-yieldtype").value="finansieret";
     document.getElementById("f-unreg").value="";
     resetTypeChips();
-    setDisqState(0);
+    setChipFilter("all");
     sortCol = "yield_v2_pct"; sortDir = "desc";
     document.getElementById("mobile-sort-select").value = "yield_v2_pct|desc";
     renderTable();
@@ -1815,26 +1884,18 @@
     document.getElementById("f-unreg").value="";
     // Alle boligtyper aktive inkl. villalejlighed
     document.querySelectorAll(".type-chip").forEach(c => c.classList.add("active"));
-    setDisqState(0);
+    setChipFilter("all");
     renderTable();
     updateFilterBadge();
   }
 
-  // ── Diskvalificerede 3-state chip ────────────────────────
-  // 0 = neutral (standard: skjuler diskvalificerede)
-  // 1 = skjul diskvalificerede  (eksplicit skjul)
-  // 2 = vis kun diskvalificerede
-  let disqState = 0;
-  const disqChip = document.getElementById("disq-chip");
-  const DISQ_LABELS = ["❌ Diskvalificerede", "🙈 Skjul diskval.", "❌ Kun diskval."];
-  function setDisqState(s) {
-    disqState = s;
-    disqChip.dataset.disqState = s;
-    disqChip.textContent = DISQ_LABELS[s];
-    disqChip.classList.toggle("active", s === 2);
-    renderTable();
-  }
-  disqChip.addEventListener("click", () => setDisqState((disqState + 1) % 3));
+  // ── Chip state-variabler (styres nu af setChipFilter) ────
+  let trashState = 0;
+  let disqState  = 0;
+
+  // Bruges af doReset / doShowAll
+  function setDisqState(s)  { disqState  = s; }
+  function setTrashState(s) { trashState = s; }
 
   document.getElementById("reset-btn").addEventListener("click", doReset);
   document.getElementById("show-all-btn").addEventListener("click", doShowAll);
