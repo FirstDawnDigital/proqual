@@ -1318,7 +1318,7 @@
 
       // Diskvalificerede 3-state: 0=standard skjul, 1=eksplicit skjul, 2=kun vis
       if (disqState === 2 && ann.status !== "disqualified") return false;
-      if (disqState !== 2 && ann.status === "disqualified") return false;
+      if (disqState === 1 && ann.status === "disqualified") return false;
 
       // Aktiv række og pinned bypasser øvrige filtre
       if (p.id === activeRowId) return true;
