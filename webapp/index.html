@@ -1789,9 +1789,11 @@
       const typeSub = [p.size_sqm!=null?p.size_sqm+"\u00a0m²":"", p.rooms!=null?p.rooms+"\u00a0rum":""].filter(Boolean).join("  ·  ");
       const unregBadge  = isUnregulated(p) ? `<span class="unreg-badge" title="Ureguleret huslejeområde — markedsleje">U</span>` : "";
       const manualBadge = p.source === "manual" ? `<span class="badge-manual" title="Manuelt tilføjet">M</span>` : "";
-      const deleteBtn   = (p.source === "manual" && statusFilter === "manual")
-        ? `<button class="si-btn" title="Slet ejendom" data-delete-prop="${p.id}" style="color:var(--red);font-size:12px">🗑</button>`
+      const manualBtns  = (p.source === "manual" && statusFilter === "manual")
+        ? `<button class="si-btn" title="Rediger ejendom" data-edit-prop="${p.id}" style="font-size:12px">✏️</button>` +
+          `<button class="si-btn" title="Slet ejendom"    data-delete-prop="${p.id}" style="color:var(--red);font-size:12px">🗑</button>`
         : "";
+      const deleteBtn = "";
 
       // Energi
       const eLabel = p.energy_label ? p.energy_label.toUpperCase() : null;
@@ -1902,7 +1904,7 @@
       if (p.id === activeRowId)        tr.classList.add("active-row");
 
       tr.innerHTML = `
-        <td style="text-align:center;padding:4px 2px">${statusIcons}${deleteBtn}</td>
+        <td style="text-align:center;padding:4px 2px">${statusIcons}${manualBtns}</td>
         <td class="cell-addr">${addrHtml}<span class="loc">${locHtml}</span>${disqReasonHtml}</td>
         <td class="cell-type"><span class="type-icon" title="${typeDA}" data-ann-id="${p.id}" data-default-title="${typeDA}">${icon}${unregBadge}</span>${manualBadge}<span class="type-sub">${esc(typeSub)}</span></td>
         <td class="num">${domCell(p.days_on_market)}</td>
@@ -1978,6 +1980,15 @@
         e.stopPropagation();
         openRenoModal(p);
       });
+
+      // Rediger manuel ejendom
+      const editBtn = tr.querySelector("[data-edit-prop]");
+      if (editBtn) {
+        editBtn.addEventListener("click", e => {
+          e.stopPropagation();
+          openAddPropModal(p);
+        });
+      }
 
       // Slet manuel ejendom
       const delBtn = tr.querySelector("[data-delete-prop]");
@@ -2291,19 +2302,35 @@
   // ── Manuel ejendomsindsætning ──────────────────────────
   const addPropModal  = document.getElementById("add-prop-modal");
   const addPropError  = document.getElementById("ap-error");
+  let   _editPropId   = null;  // null = opret, tal = rediger eksisterende
 
-  function openAddPropModal() {
-    ["ap-address","ap-zip","ap-city","ap-price","ap-costs","ap-sqm","ap-rooms","ap-url","ap-commute"]
-      .forEach(id => { document.getElementById(id).value = ""; });
-    document.getElementById("ap-type").value   = "ejerlejlighed";
-    document.getElementById("ap-energy").value = "";
+  function openAddPropModal(prefill = null) {
+    _editPropId = prefill ? prefill.id : null;
+    const hdr = document.querySelector("#add-prop-modal .modal-hdr span");
+    hdr.textContent = _editPropId ? "✏️ Rediger ejendom" : "➕ Tilføj ejendom manuelt";
+
+    const v = f => prefill?.[f] ?? "";
+    document.getElementById("ap-address").value  = v("address");
+    document.getElementById("ap-zip").value      = v("zip_code");
+    document.getElementById("ap-city").value     = v("city");
+    document.getElementById("ap-price").value    = prefill?.price    ?? "";
+    document.getElementById("ap-costs").value    = prefill?.owner_costs_monthly ?? "";
+    document.getElementById("ap-sqm").value      = prefill?.size_sqm ?? "";
+    document.getElementById("ap-rooms").value    = prefill?.rooms    ?? "";
+    document.getElementById("ap-commute").value  = prefill?.commute_minutes ?? "";
+    document.getElementById("ap-url").value      = v("listing_url");
+    document.getElementById("ap-type").value     = prefill?.property_type ?? "ejerlejlighed";
+    document.getElementById("ap-energy").value   = prefill?.energy_label  ?? "";
+
     addPropError.textContent = "";
-    document.getElementById("add-prop-save").disabled = false;
+    const btn = document.getElementById("add-prop-save");
+    btn.disabled    = false;
+    btn.textContent = "Gem ejendom";
     addPropModal.classList.add("open");
   }
-  function closeAddPropModal() { addPropModal.classList.remove("open"); }
+  function closeAddPropModal() { addPropModal.classList.remove("open"); _editPropId = null; }
 
-  document.getElementById("add-prop-btn").addEventListener("click", openAddPropModal);
+  document.getElementById("add-prop-btn").addEventListener("click", () => openAddPropModal());
   document.getElementById("add-prop-close").addEventListener("click", closeAddPropModal);
   document.getElementById("add-prop-cancel").addEventListener("click", closeAddPropModal);
   addPropModal.addEventListener("click", e => { if (e.target === addPropModal) closeAddPropModal(); });
@@ -2322,7 +2349,7 @@
       zip_code:             zip,
       city:                 document.getElementById("ap-city").value.trim(),
       price,
-      size_sqm:             parseFloat(document.getElementById("ap-sqm").value)    || null,
+      size_sqm:             parseFloat(document.getElementById("ap-sqm").value)   || null,
       rooms:                parseInt(document.getElementById("ap-rooms").value)    || null,
       property_type:        document.getElementById("ap-type").value,
       energy_label:         document.getElementById("ap-energy").value             || null,
@@ -2335,8 +2362,10 @@
     btn.disabled = true;
     btn.textContent = "Gemmer…";
     try {
-      const resp = await fetch(`${WORKER_URL}/api/properties`, {
-        method:  "POST",
+      const url    = _editPropId ? `${WORKER_URL}/api/properties/${_editPropId}` : `${WORKER_URL}/api/properties`;
+      const method = _editPropId ? "PUT" : "POST";
+      const resp = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json", "X-API-Key": getApiKey() },
         body:    JSON.stringify(payload),
       });
@@ -2345,7 +2374,6 @@
         throw new Error(err.error || "Serverfejl");
       }
       closeAddPropModal();
-      // Reload data fra API
       await loadData();
     } catch (e) {
       addPropError.textContent = "Fejl: " + e.message;
