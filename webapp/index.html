@@ -2389,12 +2389,12 @@
         const err = await resp.json();
         throw new Error(err.error || "Serverfejl");
       }
-      const body = await resp.json().catch(() => ({}));
-      console.log("[add-prop] Worker svarede:", body);
-      if (!body.id) console.warn("[add-prop] Ingen id i svar — insert kan have fejlet stille");
+      await resp.json().catch(() => ({}));
+      const wasCreating = !_editPropId;
       closeAddPropModal();
       await loadData();
-      console.log("[add-prop] loadData færdig, allData.length:", allData.length, "manuelle:", allData.filter(p=>p.source==="manual").length);
+      // Skift til Manuelle-visning så den nye ejendom er synlig med det samme
+      if (wasCreating) setChipFilter("manual");
     } catch (e) {
       addPropError.textContent = "Fejl: " + e.message;
       btn.disabled    = false;
