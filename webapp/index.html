@@ -2521,10 +2521,36 @@
     const nRum = p.lejedata_rum_antal ?? 0;
     let box = "";
 
+    // Byg Boligportal-søge-URL baseret på ejendommens koordinater
+    function buildBoligportalUrl(prop) {
+      const types   = "huse,r%C3%A6kkehuse,lejligheder";
+      const minSize = prop.size_sqm ? Math.max(25, Math.round(prop.size_sqm * 0.7)) : 30;
+      if (prop.latitude && prop.longitude) {
+        const dLat = 0.13, dLng = 0.18; // ~13km radius
+        const params = [
+          `min_size_m2=${minSize}`,
+          `max_lat=${(prop.latitude  + dLat).toFixed(6)}`,
+          `min_lat=${(prop.latitude  - dLat).toFixed(6)}`,
+          `max_lng=${(prop.longitude + dLng).toFixed(6)}`,
+          `min_lng=${(prop.longitude - dLng).toFixed(6)}`,
+          `view=map`,
+        ].join("&");
+        return `https://www.boligportal.dk/${types}/?${params}`;
+      }
+      return `https://www.boligportal.dk/${types}/?min_size_m2=${minSize}&view=map`;
+    }
+
     // V2-model — primær
     if (p.est_leje_v2 != null) {
+      const bpLink = nV2 === 0
+        ? `<a href="${buildBoligportalUrl(p)}" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:11px;
+                    color:#2563eb;text-decoration:none;font-weight:600">
+             🔍 Kvalificer på Boligportal
+           </a>`
+        : "";
       const v2Warn = nV2 === 0
-        ? `<div style="color:#d97706;font-size:11px;margin-top:4px">⚠️ National fallback — ingen zip-data for ${p.zip_code}</div>`
+        ? `<div style="color:#d97706;font-size:11px;margin-top:4px">⚠️ National fallback — ingen zip-data for ${p.zip_code}</div>${bpLink}`
         : (nV2 < MIN_N_RELIABLE ? `<div style="color:#d97706;font-size:11px;margin-top:4px">⚠️ Kun ${nV2} datapunkter — usikkert</div>` : "");
       box += `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">⭐ V2-model (4252 + b·m²) — ${p.zip_code}</div>`;
       box += `<div style="display:flex;justify-content:space-between;font-size:14px;padding:2px 0"><span>Estimat</span><span style="font-weight:700;color:#2563eb">${fmtKr(p.est_leje_v2)}</span></div>`;
