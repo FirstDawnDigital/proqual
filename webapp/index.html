@@ -139,7 +139,17 @@
     #add-prop-modal .modal-hdr {
       padding: 14px 18px 10px; border-bottom: 1px solid var(--border);
       font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: space-between;
+      transition: background .2s;
     }
+    #add-prop-modal.edit-mode .modal-hdr {
+      background: #fef9c3; border-bottom-color: #fde047;
+    }
+    #add-prop-modal .edit-banner {
+      display: none; grid-column: 1 / -1;
+      background: #fef9c3; border: 1px solid #fde047; border-radius: 6px;
+      font-size: 12px; color: #854d0e; padding: 6px 10px;
+    }
+    #add-prop-modal.edit-mode .edit-banner { display: block; }
     #add-prop-modal .modal-hdr button { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--muted); line-height: 1; }
     #add-prop-modal .modal-body { padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
     #add-prop-modal .field-full { grid-column: 1 / -1; }
@@ -937,6 +947,7 @@
         <label>URL (annonce-link)</label>
         <input type="url" id="ap-url" placeholder="https://...">
       </div>
+      <div class="edit-banner" id="ap-edit-banner">✏️ Du redigerer en eksisterende ejendom — ikke opretter ny.</div>
       <div class="form-error" id="ap-error"></div>
     </div>
     <div class="modal-ftr">
@@ -2308,6 +2319,7 @@
     _editPropId = prefill ? prefill.id : null;
     const hdr = document.querySelector("#add-prop-modal .modal-hdr span");
     hdr.textContent = _editPropId ? "✏️ Rediger ejendom" : "➕ Tilføj ejendom manuelt";
+    addPropModal.classList.toggle("edit-mode", !!_editPropId);
 
     const v = f => prefill?.[f] ?? "";
     document.getElementById("ap-address").value  = v("address");
@@ -2328,7 +2340,7 @@
     btn.textContent = "Gem ejendom";
     addPropModal.classList.add("open");
   }
-  function closeAddPropModal() { addPropModal.classList.remove("open"); _editPropId = null; }
+  function closeAddPropModal() { addPropModal.classList.remove("open", "edit-mode"); _editPropId = null; }
 
   document.getElementById("add-prop-btn").addEventListener("click", () => openAddPropModal());
   document.getElementById("add-prop-close").addEventListener("click", closeAddPropModal);
