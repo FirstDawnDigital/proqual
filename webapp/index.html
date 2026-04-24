@@ -137,12 +137,13 @@
     table { width: 100%; border-collapse: collapse; min-width: 960px; table-layout: fixed; }
     thead { background: #f1f5f9; position: sticky; top: 0; z-index: 100; }
     th {
-      padding: 8px 10px; text-align: left;
+      padding: 8px 10px; text-align: right;
       font-size: 10px; font-weight: 700; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.5px;
       border-bottom: 2px solid var(--border);
       white-space: nowrap; cursor: pointer; user-select: none;
     }
+    th:nth-child(1), th:nth-child(2), th:nth-child(3) { text-align: left; }
     th:hover { color: var(--text); }
     th .si { display: inline-block; width: 10px; margin-left: 2px; color: #94a3b8; }
     th.sort-asc  .si::after { content: "↑"; color: var(--blue); }
@@ -150,6 +151,14 @@
     th:not(.sort-asc):not(.sort-desc) .si::after { content: "⇅"; }
 
     td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    /* Kolonne-spacing: stjæl fra brede gaps, giv til trange gaps */
+    td:nth-child(4), th:nth-child(4)   { padding-left: 6px; }   /* Liggetid: lidt tættere på Type */
+    td:nth-child(5), th:nth-child(5)   { padding-left: 22px; }  /* Energi: mere luft fra Liggetid */
+    td:nth-child(6), th:nth-child(6)   { padding-left: 12px; }  /* Totalpris: lidt tættere på Energi */
+    td:nth-child(7), th:nth-child(7)   { padding-left: 22px; }  /* Finansiering: mere luft fra Totalpris */
+    td:nth-child(8), th:nth-child(8)   { padding-left: 20px; }  /* Drift */
+    td:nth-child(9), th:nth-child(9)   { padding-left: 20px; }  /* Leje/md */
+    td:nth-child(10), th:nth-child(10) { padding-left: 20px; }  /* Cashflow */
     tr:hover td { background: #f1f5f9; }
 
     /* Diskvalificeret — nedtonet */
@@ -1676,29 +1685,26 @@
 
       let priceInner;
       if (!isModified && !hasDrop) {
-        // Simpel case: kun udbudspris
+        // Case 1: Simpel — ingen ændringer, ingen prisfald
         priceInner = `<div class="price-main">${fmt(p.price)}\u00a0kr</div>`;
+      } else if (!isModified && hasDrop) {
+        // Case 2: Prisfald men ingen ændringer — vis pris + drop-badge
+        const dropK = Math.round(Math.abs(p.price_change_amount) / 1000);
+        priceInner  = `<div class="price-main">${fmt(p.price)}\u00a0kr</div>`;
+        priceInner += `<div class="price-sub"><span class="badge-pricedrop" title="${p.price_change_count} prisnedsættelse(r): ${fmt(Math.abs(p.price_change_amount))} kr">↓ ${dropK}k</span></div>`;
       } else {
-        // Linje 1: Totalpris (stor, primær)
+        // Case 3: Modificeret (bud/reno) — vis justeret totalpris + udbudspris
         priceInner = `<div class="price-main">${fmt(adjPrice)}\u00a0kr</div>`;
-        // Linje 2: Udbudspris + prisnedsættelse
         const dropStr = hasDrop
           ? ` <span class="badge-pricedrop" title="${p.price_change_count} prisnedsættelse(r): ${fmt(Math.abs(p.price_change_amount))} kr">↓ ${Math.round(Math.abs(p.price_change_amount)/1000)}k</span>`
           : "";
-        priceInner += `<div class="price-sub" style="color:var(--muted)">Udbud: ${fmt(p.price)}\u00a0kr${dropStr}</div>`;
-        // Linje 3: Forhandlet pris (hvis sat)
+        priceInner += `<div class="price-sub" style="color:var(--muted)">💰 ${fmt(p.price)}\u00a0kr${dropStr}</div>`;
         if (hasCustomPrice) {
           priceInner += `<div class="price-sub" style="color:#d97706">✏️ Bud: ${fmt(ann.custom_price)}\u00a0kr</div>`;
         }
-        // Linje 4: Renoveringsomkostninger (hvis sat)
         if (total > 0) {
-          priceInner += `<div class="price-sub" style="color:var(--blue)">🔨 +${fmt(total)}\u00a0kr reno</div>`;
+          priceInner += `<div class="price-sub" style="color:var(--blue)">🔨 +${fmt(total)}\u00a0kr</div>`;
         }
-      }
-      // Prisnedsættelse i simpel case
-      if (!isModified && hasDrop) {
-        const dropK = Math.round(Math.abs(p.price_change_amount) / 1000);
-        priceInner += `<div class="badge-pricedrop" title="${fmt(Math.abs(p.price_change_amount))} kr">↓ ${dropK}k</div>`;
       }
       if (sqmPris) priceInner += `<div class="price-sub">${fmt(sqmPris)}\u00a0kr/m²</div>`;
       const priceHtml = `<button class="price-btn price-reno-${renoStatus}" data-reno-open="${p.id}" title="Klik for at estimere renovering">${priceInner}</button>`;
@@ -1706,7 +1712,7 @@
       // Finansieringskolonne
       const finHtml = `
         <div class="fin-laan ${loanRisk ? 'fin-risk' : 'fin-ok'}">${fmt(Math.round(laan))}\u00a0kr${loanRisk ? ' <span class="fin-warn" style="color:#94a3b8">⚠</span>' : ''}</div>
-        <div class="fin-sub">${fmt(udbetaling)}\u00a0kr udbetaling</div>
+        <div class="fin-sub">💵 ${fmt(udbetaling)}\u00a0kr</div>
       `;
 
       // Drift: ejerudgift + ydelse (forudberegn cashflow til farvelægning)
