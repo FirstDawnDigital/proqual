@@ -863,6 +863,7 @@
       <button class="chip" id="disq-chip"  data-filter="disq">❌ Diskvalificerede</button>
       <button class="chip" id="trash-chip" data-filter="trash" title="Vis skjulte ejendomme">🗑️</button>
       <button class="chip" data-filter="edited">✏️ Redigerede</button>
+      <button class="chip" id="manual-chip" data-filter="manual">➕ Manuelle</button>
     </div>
     <span id="result-count"></span>
     <button id="add-prop-btn" title="Tilføj ejendom manuelt">＋ Tilføj</button>
@@ -1647,6 +1648,7 @@
 
       // Status-filter chips
       if (statusFilter === "favorite" && ann.status !== "favorite") return false;
+      if (statusFilter === "manual"   && p.source !== "manual")     return false;
       if (statusFilter === "edited") {
         const hasEdit = ann.status !== "neutral"
           || ann.pinned
@@ -1787,8 +1789,8 @@
       const typeSub = [p.size_sqm!=null?p.size_sqm+"\u00a0m²":"", p.rooms!=null?p.rooms+"\u00a0rum":""].filter(Boolean).join("  ·  ");
       const unregBadge  = isUnregulated(p) ? `<span class="unreg-badge" title="Ureguleret huslejeområde — markedsleje">U</span>` : "";
       const manualBadge = p.source === "manual" ? `<span class="badge-manual" title="Manuelt tilføjet">M</span>` : "";
-      const deleteBtn   = p.source === "manual"
-        ? `<button class="si-btn" title="Slet manuel ejendom" data-delete-prop="${p.id}" style="color:var(--red);font-size:12px">🗑</button>`
+      const deleteBtn   = (p.source === "manual" && statusFilter === "manual")
+        ? `<button class="si-btn" title="Slet ejendom" data-delete-prop="${p.id}" style="color:var(--red);font-size:12px">🗑</button>`
         : "";
 
       // Energi
@@ -2215,6 +2217,7 @@
     // Sæt den valgte state
     if (filter === "favorite")      statusFilter = "favorite";
     else if (filter === "edited")   statusFilter = "edited";
+    else if (filter === "manual")   statusFilter = "manual";
     else if (filter === "disq")     disqState    = 1;
     else if (filter === "trash")    trashState   = 1;
     // "all" → ingen ændring (alle nulstillet ovenfor)
