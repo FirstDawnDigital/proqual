@@ -122,6 +122,40 @@
     }
     #result-count { font-size: 12px; color: var(--muted); margin-left: auto; }
     .filter-bar-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; }
+    #add-prop-btn { margin-left: 10px; padding: 5px 11px; border-radius: 6px; border: 1.5px dashed var(--blue); background: #eff6ff; color: var(--blue); font-size: 13px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    #add-prop-btn:hover { background: #dbeafe; }
+
+    /* ── Manuel ejendom modal ── */
+    #add-prop-modal {
+      display: none; position: fixed; inset: 0; z-index: 600;
+      background: rgba(0,0,0,.35); align-items: center; justify-content: center;
+    }
+    #add-prop-modal.open { display: flex; }
+    #add-prop-modal .modal-box {
+      background: var(--card); border-radius: 12px; width: 480px; max-width: 95vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18); display: flex; flex-direction: column;
+      max-height: 90vh; overflow-y: auto;
+    }
+    #add-prop-modal .modal-hdr {
+      padding: 14px 18px 10px; border-bottom: 1px solid var(--border);
+      font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: space-between;
+    }
+    #add-prop-modal .modal-hdr button { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--muted); line-height: 1; }
+    #add-prop-modal .modal-body { padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+    #add-prop-modal .field-full { grid-column: 1 / -1; }
+    #add-prop-modal label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 3px; }
+    #add-prop-modal input, #add-prop-modal select {
+      width: 100%; box-sizing: border-box; padding: 6px 9px;
+      border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+      background: var(--bg); color: var(--text);
+    }
+    #add-prop-modal input:focus, #add-prop-modal select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px #2563eb22; }
+    #add-prop-modal .modal-ftr { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+    #add-prop-modal .btn-cancel { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 16px; cursor: pointer; font-size: 13px; }
+    #add-prop-modal .btn-save { background: var(--blue); color: #fff; border: none; border-radius: 6px; padding: 7px 16px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    #add-prop-modal .btn-save:disabled { opacity: .5; cursor: not-allowed; }
+    #add-prop-modal .form-error { grid-column: 1 / -1; font-size: 12px; color: var(--red); }
+    .badge-manual { display: inline-block; font-size: 9px; font-weight: 800; background: #7c3aed22; color: #7c3aed; border-radius: 3px; padding: 1px 4px; margin-left: 4px; vertical-align: middle; letter-spacing: .3px; }
 
     /* Status-filter chips */
     .chip-group { display: flex; gap: 4px; }
@@ -831,6 +865,83 @@
       <button class="chip" data-filter="edited">✏️ Redigerede</button>
     </div>
     <span id="result-count"></span>
+    <button id="add-prop-btn" title="Tilføj ejendom manuelt">＋ Tilføj</button>
+  </div>
+</div>
+
+<!-- Modal: Manuel ejendomsindsætning -->
+<div id="add-prop-modal">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <span>➕ Tilføj ejendom manuelt</span>
+      <button id="add-prop-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-full">
+        <label>Adresse *</label>
+        <input type="text" id="ap-address" placeholder="Eksempelvej 12, 1. tv">
+      </div>
+      <div>
+        <label>Postnummer *</label>
+        <input type="text" id="ap-zip" placeholder="3300" maxlength="4" pattern="\d{4}">
+      </div>
+      <div>
+        <label>By</label>
+        <input type="text" id="ap-city" placeholder="Frederikssund">
+      </div>
+      <div>
+        <label>Kontantpris (kr) *</label>
+        <input type="number" id="ap-price" placeholder="1500000" min="0" step="50000">
+      </div>
+      <div>
+        <label>Ejerudgifter/md (kr)</label>
+        <input type="number" id="ap-costs" placeholder="3500" min="0">
+      </div>
+      <div>
+        <label>Størrelse (m²)</label>
+        <input type="number" id="ap-sqm" placeholder="85" min="1">
+      </div>
+      <div>
+        <label>Rum</label>
+        <input type="number" id="ap-rooms" placeholder="3" min="1" max="20">
+      </div>
+      <div>
+        <label>Boligtype</label>
+        <select id="ap-type">
+          <option value="ejerlejlighed">🏢 Ejerlejlighed</option>
+          <option value="villa">🏠 Villa</option>
+          <option value="rækkehus">🏘️ Rækkehus</option>
+          <option value="landejendom">🚜 Landejendom</option>
+          <option value="villalejlighed">🏯 Villalejlighed</option>
+        </select>
+      </div>
+      <div>
+        <label>Energimærke</label>
+        <select id="ap-energy">
+          <option value="">–</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+          <option value="E">E</option>
+          <option value="F">F</option>
+          <option value="G">G</option>
+        </select>
+      </div>
+      <div>
+        <label>Køretid (min)</label>
+        <input type="number" id="ap-commute" placeholder="35" min="0">
+      </div>
+      <div class="field-full">
+        <label>URL (annonce-link)</label>
+        <input type="url" id="ap-url" placeholder="https://...">
+      </div>
+      <div class="form-error" id="ap-error"></div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn-cancel" id="add-prop-cancel">Annuller</button>
+      <button class="btn-save" id="add-prop-save">Gem ejendom</button>
+    </div>
   </div>
 </div>
 
@@ -1661,7 +1772,11 @@
       const icon    = TYPE_ICON[p.property_type] || "🏠";
       const typeDA  = TYPE_DA[p.property_type]   || esc(p.property_type||"–");
       const typeSub = [p.size_sqm!=null?p.size_sqm+"\u00a0m²":"", p.rooms!=null?p.rooms+"\u00a0rum":""].filter(Boolean).join("  ·  ");
-      const unregBadge = isUnregulated(p) ? `<span class="unreg-badge" title="Ureguleret huslejeområde — markedsleje">U</span>` : "";
+      const unregBadge  = isUnregulated(p) ? `<span class="unreg-badge" title="Ureguleret huslejeområde — markedsleje">U</span>` : "";
+      const manualBadge = p.source === "manual" ? `<span class="badge-manual" title="Manuelt tilføjet">M</span>` : "";
+      const deleteBtn   = p.source === "manual"
+        ? `<button class="si-btn" title="Slet manuel ejendom" data-delete-prop="${p.id}" style="color:var(--red);font-size:12px">🗑</button>`
+        : "";
 
       // Energi
       const eLabel = p.energy_label ? p.energy_label.toUpperCase() : null;
@@ -1772,9 +1887,9 @@
       if (p.id === activeRowId)        tr.classList.add("active-row");
 
       tr.innerHTML = `
-        <td style="text-align:center;padding:4px 2px">${statusIcons}</td>
+        <td style="text-align:center;padding:4px 2px">${statusIcons}${deleteBtn}</td>
         <td class="cell-addr">${addrHtml}<span class="loc">${locHtml}</span>${disqReasonHtml}</td>
-        <td class="cell-type"><span class="type-icon" title="${typeDA}" data-ann-id="${p.id}" data-default-title="${typeDA}">${icon}${unregBadge}</span><span class="type-sub">${esc(typeSub)}</span></td>
+        <td class="cell-type"><span class="type-icon" title="${typeDA}" data-ann-id="${p.id}" data-default-title="${typeDA}">${icon}${unregBadge}</span>${manualBadge}<span class="type-sub">${esc(typeSub)}</span></td>
         <td class="num">${domCell(p.days_on_market)}</td>
         <td style="text-align:center">${energyHtml}</td>
         <td class="num">${priceHtml}</td>
@@ -1848,6 +1963,24 @@
         e.stopPropagation();
         openRenoModal(p);
       });
+
+      // Slet manuel ejendom
+      const delBtn = tr.querySelector("[data-delete-prop]");
+      if (delBtn) {
+        delBtn.addEventListener("click", async e => {
+          e.stopPropagation();
+          if (!confirm(`Slet "${p.address}"? Dette kan ikke fortrydes.`)) return;
+          try {
+            await fetch(`${API_BASE}/api/properties/${p.id}`, {
+              method: "DELETE",
+              headers: { "X-API-Key": getApiKey() },
+            });
+            await loadData();
+          } catch (err) {
+            alert("Sletning fejlede: " + err.message);
+          }
+        });
+      }
 
       // Klik på rækken (ikke på knapper/links) toggler aktiv-lås
       tr.addEventListener("click", e => {
@@ -2138,6 +2271,72 @@
 
   document.getElementById("reset-btn").addEventListener("click", doReset);
   document.getElementById("show-all-btn").addEventListener("click", doShowAll);
+
+  // ── Manuel ejendomsindsætning ──────────────────────────
+  const addPropModal  = document.getElementById("add-prop-modal");
+  const addPropError  = document.getElementById("ap-error");
+
+  function openAddPropModal() {
+    ["ap-address","ap-zip","ap-city","ap-price","ap-costs","ap-sqm","ap-rooms","ap-url","ap-commute"]
+      .forEach(id => { document.getElementById(id).value = ""; });
+    document.getElementById("ap-type").value   = "ejerlejlighed";
+    document.getElementById("ap-energy").value = "";
+    addPropError.textContent = "";
+    document.getElementById("add-prop-save").disabled = false;
+    addPropModal.classList.add("open");
+  }
+  function closeAddPropModal() { addPropModal.classList.remove("open"); }
+
+  document.getElementById("add-prop-btn").addEventListener("click", openAddPropModal);
+  document.getElementById("add-prop-close").addEventListener("click", closeAddPropModal);
+  document.getElementById("add-prop-cancel").addEventListener("click", closeAddPropModal);
+  addPropModal.addEventListener("click", e => { if (e.target === addPropModal) closeAddPropModal(); });
+
+  document.getElementById("add-prop-save").addEventListener("click", async () => {
+    addPropError.textContent = "";
+    const address = document.getElementById("ap-address").value.trim();
+    const zip     = document.getElementById("ap-zip").value.trim();
+    const price   = parseFloat(document.getElementById("ap-price").value);
+    if (!address) { addPropError.textContent = "Adresse er påkrævet."; return; }
+    if (!zip || !/^\d{4}$/.test(zip)) { addPropError.textContent = "Postnummer skal være 4 cifre."; return; }
+    if (!price || price <= 0) { addPropError.textContent = "Pris er påkrævet."; return; }
+
+    const payload = {
+      address,
+      zip_code:             zip,
+      city:                 document.getElementById("ap-city").value.trim(),
+      price,
+      size_sqm:             parseFloat(document.getElementById("ap-sqm").value)    || null,
+      rooms:                parseInt(document.getElementById("ap-rooms").value)    || null,
+      property_type:        document.getElementById("ap-type").value,
+      energy_label:         document.getElementById("ap-energy").value             || null,
+      owner_costs_monthly:  parseFloat(document.getElementById("ap-costs").value)  || null,
+      commute_minutes:      parseInt(document.getElementById("ap-commute").value)  || null,
+      listing_url:          document.getElementById("ap-url").value.trim()         || null,
+    };
+
+    const btn = document.getElementById("add-prop-save");
+    btn.disabled = true;
+    btn.textContent = "Gemmer…";
+    try {
+      const resp = await fetch(`${API_BASE}/api/properties`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": getApiKey() },
+        body:    JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || "Serverfejl");
+      }
+      closeAddPropModal();
+      // Reload data fra API
+      await loadData();
+    } catch (e) {
+      addPropError.textContent = "Fejl: " + e.message;
+      btn.disabled    = false;
+      btn.textContent = "Gem ejendom";
+    }
+  });
 
 
   // ── Mobil sort-bar ────────────────────────────────────
