@@ -1714,6 +1714,18 @@
       let av, bv;
       if (sortCol === "yield_v2_pct") {
         av = _sortYield(a); bv = _sortYield(b);
+      } else if (sortCol === "owner_costs_monthly") {
+        // Drift = ejerudgift + månedlig ydelse (finansiering)
+        const ud = getUdbetaling();
+        const drift = p => {
+          const ann       = getAnnotation(p.id);
+          const total     = (ann.renovation_items||[]).reduce((s,i)=>s+(parseFloat(i.cost)||0),0);
+          const base      = ann.custom_price ?? p.price;
+          const adjPrice  = base + total;
+          const { ydelse } = computeLoan(adjPrice, ud);
+          return (p.owner_costs_monthly ?? 0) + ydelse;
+        };
+        av = drift(a); bv = drift(b);
       } else {
         av=a[sortCol]; bv=b[sortCol];
       }
