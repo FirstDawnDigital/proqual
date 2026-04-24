@@ -2008,10 +2008,14 @@
           e.stopPropagation();
           if (!confirm(`Slet "${p.address}"? Dette kan ikke fortrydes.`)) return;
           try {
-            await fetch(`${WORKER_URL}/api/properties/${p.id}`, {
+            const resp = await fetch(`${WORKER_URL}/api/properties/${p.id}`, {
               method: "DELETE",
               headers: { "X-API-Key": getApiKey() },
             });
+            if (!resp.ok) {
+              const body = await resp.json().catch(() => ({}));
+              throw new Error(`HTTP ${resp.status}: ${body.error || resp.statusText}`);
+            }
             await loadData();
           } catch (err) {
             alert("Sletning fejlede: " + err.message);
