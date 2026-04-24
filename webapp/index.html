@@ -1671,7 +1671,8 @@
       // Huslejeregler: kun uregulerede
       if (unregOnly && !isUnregulated(p)) return false;
       if (p.price > maxPrice)                               return false;
-      if (minYield>0) {
+      const isManual = p.source === "manual";
+      if (minYield>0 && !isManual) {
         const ann2 = getAnnotation(p.id);
         const adj2 = p.price + renoTotal(ann2.renovation_items || []);
         const leje2 = effectiveLeje(p, ann2);
@@ -1684,7 +1685,7 @@
       if (p.rooms!=null && p.rooms>maxRooms)                return false;
       const effN = p.est_leje_v2 != null ? (p.lejedata_v2_antal ?? 0) : (p.lejedata_antal ?? 0);
       if (minN>0 && effN<minN) return false;
-      if (energyAllowed && !energyAllowed.has((p.energy_label||"").toUpperCase())) return false;
+      if (energyAllowed && !isManual && !energyAllowed.has((p.energy_label||"").toUpperCase())) return false;
       if (maxCommute > 0 && p.commute_minutes != null && p.commute_minutes > maxCommute) return false;
       return true;
     });
