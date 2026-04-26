@@ -335,8 +335,17 @@
 
     /* ── Cashflow ── */
     .cashflow-pos { color: var(--green); font-weight: 700; font-size: 13px; }
-    .cashflow-neg { color: var(--risk); font-weight: 700; font-size: 13px; }
+    .cashflow-neg { color: var(--risk);  font-weight: 700; font-size: 13px; }
+    .cashflow-dim { color: var(--muted); font-weight: 700; font-size: 13px; }
     .netto-sub    { font-size: 11px; color: var(--muted); }
+    /* Opsparing-sorterings-chip i kolonneoverskrift */
+    .cf-sort-chip {
+      display: inline-block; font-size: 11px; padding: 0px 4px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg); cursor: pointer;
+      margin-left: 4px; vertical-align: middle; user-select: none; line-height: 1.6;
+    }
+    .cf-sort-chip:hover { border-color: var(--blue); }
+    .cf-sort-chip.opsp-active { border-color: var(--blue); background: #eff6ff; }
 
     /* ── Est. leje ── */
     .leje-cell { position: relative; cursor: pointer; }
@@ -476,6 +485,76 @@
     }
     .leje-manual-inputs input:focus { outline: none; border-color: #d97706; }
     .leje-system-val { font-size: 13px; color: var(--muted); }
+
+    /* ── Lånetypekonfiguration ── */
+    #laantype-settings-btn {
+      padding: 4px 7px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg); color: var(--muted); font-size: 13px; cursor: pointer;
+      flex-shrink: 0; line-height: 1;
+    }
+    #laantype-settings-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .lt-modal { max-width: 500px; }
+    .lt-view  { display: none; }
+    .lt-view.active { display: block; }
+    .lt-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .lt-card.is-default { border-color: var(--blue); background: #eff6ff; }
+    .lt-card-head {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+    }
+    .lt-name { font-weight: 700; font-size: 14px; }
+    .lt-badge-default {
+      font-size: 10px; font-weight: 700; background: var(--blue); color: #fff;
+      border-radius: 4px; padding: 2px 6px; margin-left: 8px;
+    }
+    .lt-stats { font-size: 12px; color: var(--muted); }
+    .lt-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .lt-btn {
+      padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+      font-size: 12px; font-weight: 600; cursor: pointer; background: var(--bg); color: var(--text);
+    }
+    .lt-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .lt-btn.btn-default-set { border-color: var(--green); color: var(--green); }
+    .lt-btn.btn-danger      { border-color: var(--red);  color: var(--red);  }
+    .lt-form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+    }
+    .lt-form-grid.cols-3 { grid-template-columns: 1.4fr 1fr 1fr; }
+    .lt-form-group { display: flex; flex-direction: column; gap: 3px; }
+    .lt-form-group label {
+      font-size: 10px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .lt-form-group input {
+      padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; background: var(--bg); color: var(--text);
+    }
+    .lt-form-group input:focus { outline: none; border-color: var(--blue); }
+    .lt-section-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--muted); margin-bottom: 8px; margin-top: 14px;
+    }
+    /* Kalibreringspunkter — 2×2 grid pr. punkt */
+    .lt-pt-block {
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px 12px; margin-bottom: 8px;
+    }
+    .lt-pt-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px;
+    }
+    .lt-pt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .lt-pt-grid .lt-form-group input {
+      padding: 5px 7px; border: 1px solid var(--border); border-radius: 5px;
+      font-size: 13px; background: var(--bg); color: var(--text); width: 100%; box-sizing: border-box;
+    }
+    .lt-pt-grid .lt-form-group input:focus { outline: none; border-color: var(--blue); }
+    .lt-default-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 14px;
+    }
+    .lt-help { font-size: 11px; color: var(--muted); margin-top: 6px; }
 
     /* Renoveringsopsummering */
     .reno-summary {
@@ -820,9 +899,10 @@
           </div>
           <div class="filter-group fg-laantype">
             <label>Lånetype</label>
-            <select id="f-laantype">
-              <option value="realkredit">Realkredit 4%</option>
-            </select>
+            <div style="display:flex;gap:4px;align-items:center">
+              <select id="f-laantype" style="flex:1"></select>
+              <button id="laantype-settings-btn" title="Administrer lånetyper">⚙</button>
+            </div>
           </div>
         </div>
       </div>
@@ -976,7 +1056,7 @@
         <th class="num" style="width:120px">Finansiering</th>
         <th data-col="owner_costs_monthly" class="num" style="width:110px">Drift <span class="si"></span></th>
         <th data-col="est_leje_sqm" class="num" style="width:110px">Leje/md <span class="si"></span></th>
-        <th class="num" style="width:100px">Cashflow</th>
+        <th data-col="cashflow_cf" class="num" style="width:120px">Cashflow <span class="si"></span><span class="cf-sort-chip" data-sort-opsp title="Sorteret efter cashflow — klik for samlet opsparing">💵</span></th>
         <th data-col="yield_v2_pct" class="num sort-desc" style="width:72px">Afkast% <span class="si"></span></th>
         <th data-col="commute_minutes" class="num" style="width:82px">Køretid <span class="si"></span></th>
       </tr>
@@ -987,6 +1067,8 @@
     Sorter:
     <select id="mobile-sort-select">
       <option value="yield_v2_pct|desc">Afkast% ↓</option>
+      <option value="cashflow_cf|desc">Cashflow ↓</option>
+      <option value="opsparing|desc">Opsparing ↓</option>
       <option value="days_on_market|asc">Nyeste først</option>
       <option value="price|asc">Pris ↑</option>
       <option value="price|desc">Pris ↓</option>
@@ -1085,6 +1167,67 @@
         <button class="btn-cancel" id="leje-modal-cancel">Annuller</button>
         <button class="btn-save"   id="leje-modal-save">Gem</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lånetypekonfiguration modal -->
+<div id="lt-modal" class="modal-backdrop">
+  <div class="modal lt-modal">
+    <div class="modal-header">
+      <div id="lt-modal-title-wrap">
+        <h2 id="lt-modal-title">Lånetyper</h2>
+        <div class="addr-sub">Konfigurer lånetyper og kalibreringspunkter</div>
+      </div>
+      <button class="modal-close" id="lt-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Listevisning -->
+      <div id="lt-view-list" class="lt-view active">
+        <div id="lt-cards-container"></div>
+        <button id="lt-add-btn" class="add-item-btn">+ Tilføj ny lånetype</button>
+      </div>
+      <!-- Redigeringsvisning -->
+      <div id="lt-view-edit" class="lt-view">
+        <div class="lt-default-row">
+          <input type="checkbox" id="lt-edit-isDefault">
+          <label for="lt-edit-isDefault" style="font-size:13px;cursor:pointer">Brug som standard</label>
+        </div>
+        <div class="lt-form-grid">
+          <div class="lt-form-group" style="grid-column:1/-1">
+            <label>Navn</label>
+            <input type="text" id="lt-edit-name" placeholder="fx SparD 4% fast rente">
+          </div>
+        </div>
+
+        <div class="lt-section-label">Kalibreringspunkter</div>
+        <p class="lt-help" style="margin-bottom:10px">Aflæs fra bankens beregner for to lånebeløb. Ydelse er <em>efter skat</em>.</p>
+        <div class="lt-pt-block">
+          <div class="lt-pt-label">Punkt 1</div>
+          <div class="lt-pt-grid">
+            <div class="lt-form-group"><label>Lån (kr)</label><input type="number" id="lt-pt1-laan"   placeholder="500000"  step="50000"></div>
+            <div class="lt-form-group"><label>Ydelse/md e. skat</label><input type="number" id="lt-pt1-ydelse" placeholder="2228"    step="10"></div>
+            <div class="lt-form-group"><label>Afdrag/md</label><input type="number" id="lt-pt1-afdrag" placeholder="765"     step="10"></div>
+            <div class="lt-form-group"><label>Etablering (kr)</label><input type="number" id="lt-pt1-etab"   placeholder="16825"   step="100"></div>
+          </div>
+        </div>
+        <div class="lt-pt-block">
+          <div class="lt-pt-label">Punkt 2</div>
+          <div class="lt-pt-grid">
+            <div class="lt-form-group"><label>Lån (kr)</label><input type="number" id="lt-pt2-laan"   placeholder="1500000" step="50000"></div>
+            <div class="lt-form-group"><label>Ydelse/md e. skat</label><input type="number" id="lt-pt2-ydelse" placeholder="6852"    step="10"></div>
+            <div class="lt-form-group"><label>Afdrag/md</label><input type="number" id="lt-pt2-afdrag" placeholder="2268"    step="10"></div>
+            <div class="lt-form-group"><label>Etablering (kr)</label><input type="number" id="lt-pt2-etab"   placeholder="31825"   step="100"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" id="lt-footer-list">
+      <button class="btn-cancel" id="lt-modal-close2">Luk</button>
+    </div>
+    <div class="modal-footer" id="lt-footer-edit" style="display:none">
+      <button class="btn-cancel" id="lt-edit-cancel">← Tilbage</button>
+      <button class="btn-save"   id="lt-edit-save">Gem</button>
     </div>
   </div>
 </div>
@@ -1194,6 +1337,73 @@
     input.addEventListener("keydown", e => { if (e.key === "Enter") attempt(); });
   }
 
+  // ── Lånetyper konfiguration ───────────────────────────
+  const DEFAULT_LOAN_TYPES = [
+    {
+      id: "spard_4pct",
+      name: "SparD 4%",
+      isDefault: true,
+      // Etablering pr. punkt: tinglysning (1.825 + 1,5%) + stiftelse (7.500)
+      pts: [
+        { laan: 500000,  ydelse: 2228, afdrag: 765,  etablering: 16825 },
+        { laan: 1500000, ydelse: 6852, afdrag: 2268, etablering: 31825 }
+      ]
+    },
+    {
+      id: "rk_4pct_gammel",
+      name: "Realkredit 4% (gammel)",
+      isDefault: false,
+      // Etablering pr. punkt: 9.000 fast + 1,5%
+      pts: [
+        { laan: 500000,  ydelse: 2118, afdrag: 396,  etablering: 16500 },
+        { laan: 1500000, ydelse: 6279, afdrag: 1174, etablering: 31500 }
+      ]
+    }
+  ];
+
+  let loanTypes = [];
+
+  function loadLoanTypes() {
+    try {
+      const stored = localStorage.getItem("loanTypes_v1");
+      if (stored) {
+        loanTypes = JSON.parse(stored);
+        // Migration: gammel format har etablering som { fast, pct } på top-niveau
+        loanTypes.forEach(t => {
+          if (t.etablering && typeof t.etablering === "object" && "fast" in t.etablering) {
+            const { fast, pct } = t.etablering;
+            t.pts.forEach(p => {
+              if (!("etablering" in p)) {
+                p.etablering = Math.round(fast + (pct / 100) * p.laan);
+              }
+            });
+            delete t.etablering;
+          }
+        });
+      } else {
+        loanTypes = JSON.parse(JSON.stringify(DEFAULT_LOAN_TYPES));
+      }
+    } catch { loanTypes = JSON.parse(JSON.stringify(DEFAULT_LOAN_TYPES)); }
+  }
+
+  function saveLoanTypes() {
+    localStorage.setItem("loanTypes_v1", JSON.stringify(loanTypes));
+  }
+
+  function populateLaantypeDropdown() {
+    const sel = document.getElementById("f-laantype");
+    const curVal = sel.value;
+    sel.innerHTML = "";
+    loanTypes.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.name;
+      sel.appendChild(opt);
+    });
+    const defaultId = (loanTypes.find(t => t.isDefault) || loanTypes[0] || {}).id || "";
+    sel.value = (curVal && loanTypes.some(t => t.id === curVal)) ? curVal : defaultId;
+  }
+
   // ── State ─────────────────────────────────────────────
   let allData    = [];
   let annotations = {};        // property_id → annotation obj
@@ -1283,15 +1493,32 @@
     return document.getElementById("f-yieldtype").value || "finansieret";
   }
 
-  // Låneberegning: realkredit-model
-  // Etablering = 9.000 kr + 1,5% af lånebeløb
-  // Månedlig ydelse = (lån + etablering) × 0,0041
+  function getLaantype() {
+    const sel = document.getElementById("f-laantype");
+    return sel?.value || (loanTypes.find(t => t.isDefault) || loanTypes[0] || {}).id || "";
+  }
+
+  // Låneberegning — lineær interpolation fra aktiv lånetyps kalibreringspunkter
   function computeLoan(totalpris, udbetaling) {
-    const laan       = Math.max(0, totalpris - udbetaling);
-    const etablering = 9000 + 0.015 * laan;
-    const ydelse     = (laan + etablering) * 0.0041;
-    const ratio      = totalpris > 0 ? laan / totalpris : 0;
-    return { laan, ydelse, ratio };
+    const laan  = Math.max(0, totalpris - udbetaling);
+    const ratio = totalpris > 0 ? laan / totalpris : 0;
+
+    const typeId = getLaantype();
+    const config = loanTypes.find(t => t.id === typeId)
+                || loanTypes.find(t => t.isDefault)
+                || loanTypes[0];
+
+    if (!config) return { laan, ydelse: 0, ratio, afdrag: 0, etablering: 0 };
+
+    const [p1, p2] = config.pts;
+    const span = p2.laan - p1.laan;
+    const t    = span !== 0 ? (laan - p1.laan) / span : 0;
+
+    const ydelse     = Math.max(0, p1.ydelse     + t * (p2.ydelse     - p1.ydelse));
+    const afdrag     = Math.max(0, p1.afdrag     + t * (p2.afdrag     - p1.afdrag));
+    const etablering = Math.max(0, (p1.etablering ?? 0) + t * ((p2.etablering ?? 0) - (p1.etablering ?? 0)));
+
+    return { laan, ydelse, ratio, afdrag, etablering };
   }
 
   // Beregn afkast baseret på valgt afkasttype
@@ -1740,6 +1967,37 @@
           return (p.owner_costs_monthly ?? 0) + ydelse;
         };
         av = drift(a); bv = drift(b);
+      } else if (sortCol === "cashflow_cf") {
+        // Cashflow = leje − ejerudgift − ydelse
+        const ud = getUdbetaling();
+        const cf = p => {
+          const ann      = getAnnotation(p.id);
+          const leje     = effectiveLeje(p, ann);
+          if (leje == null) return null;
+          const total    = (ann.renovation_items||[]).reduce((s,i)=>s+(parseFloat(i.cost)||0),0);
+          const base     = ann.custom_price ?? p.price;
+          const adjPrice = base + total;
+          const { ydelse } = computeLoan(adjPrice, ud);
+          const ejerudgift = p.owner_costs_monthly ?? 0;
+          return leje - ejerudgift - ydelse;
+        };
+        av = cf(a); bv = cf(b);
+      } else if (sortCol === "opsparing") {
+        // Samlet opsparing = cashflow + afdrag
+        const ud = getUdbetaling();
+        const opsp = p => {
+          const ann      = getAnnotation(p.id);
+          const total    = (ann.renovation_items||[]).reduce((s,i)=>s+(parseFloat(i.cost)||0),0);
+          const base     = ann.custom_price ?? p.price;
+          const adjPrice = base + total;
+          const leje     = effectiveLeje(p, ann);
+          if (leje == null) return null;
+          const { ydelse, afdrag } = computeLoan(adjPrice, ud);
+          const ejerudgift = p.owner_costs_monthly ?? 0;
+          const cashflow   = leje - ejerudgift - ydelse;
+          return cashflow + afdrag;
+        };
+        av = opsp(a); bv = opsp(b);
       } else {
         av=a[sortCol]; bv=b[sortCol];
       }
@@ -1817,7 +2075,7 @@
 
       // Finansiering
       const udbetaling = getUdbetaling();
-      const { laan, ydelse, ratio } = computeLoan(adjPrice, udbetaling);
+      const { laan, ydelse, ratio, afdrag } = computeLoan(adjPrice, udbetaling);
       const loanRisk = ratio > 0.80;
 
       // Totalpris — ny rækkefølge:
@@ -1870,16 +2128,31 @@
           `<div class="price-sub">${fmt(Math.round(ydelse))}\u00a0kr/md ydelse</div>`
         : `<div class="price-sub">${fmt(Math.round(ydelse))}\u00a0kr/md ydelse</div>`;
 
-      // Est. leje + nettoleje + cashflow
+      // Est. leje + nettoleje + cashflow + samlet opsparing
       const leje = effectiveLeje(p, ann);
-      const _lejeHtml = lejeHtml(p, ann);
       const nettoleje = leje != null ? leje - ejerudgift : null;
       const cashflow  = nettoleje != null ? nettoleje - ydelse : null;
-      const cfSign    = cashflow != null && cashflow >= 0 ? "+" : "";
-      const cfCls     = cashflow != null ? (cashflow >= 0 ? "cashflow-pos" : "cashflow-neg") : "";
-      const cfHtml    = cashflow != null
-        ? `<div class="${cfCls}">${cfSign}${fmt(Math.round(cashflow))}\u00a0kr/md</div>
-           <div class="netto-sub">${fmt(Math.round(nettoleje))}\u00a0kr netto</div>`
+      const opsparing = cashflow != null ? cashflow + afdrag : null;
+
+      // Leje/md-celle: leje + nettoleje som sub
+      const _lejeHtml = lejeHtml(p, ann)
+        + (nettoleje != null
+          ? `<div class="netto-sub">${fmt(Math.round(nettoleje))}\u00a0kr netto</div>`
+          : "");
+
+      // Cashflow-celle: farver skifter med aktivt sorteringsfokus
+      const isOpspFocus = sortCol === "opsparing";
+      // Cashflow-linje: grøn/rød ved CF-fokus, grå ved opsparing-fokus
+      const cfCls = cashflow != null
+        ? (isOpspFocus ? "cashflow-dim" : (cashflow >= 0 ? "cashflow-pos" : "cashflow-neg"))
+        : "";
+      // Opsparing-linje: grøn/rød ved opsparing-fokus, grå ellers
+      const opspStyle = isOpspFocus
+        ? `style="color:${opsparing >= 0 ? "var(--green)" : "var(--risk)"};font-weight:700"` : "";
+      const cfHtml = cashflow != null
+        ? `<div class="${cfCls}">${fmt(Math.round(cashflow))}\u00a0kr cash</div>
+           <div class="price-sub">+ ${fmt(Math.round(afdrag))}\u00a0kr afdrag</div>
+           <div class="price-sub" ${opspStyle}>= ${fmt(Math.round(opsparing))}\u00a0opsp.</div>`
         : "";
 
       // Afkast — baseret på valgt afkasttype
@@ -2219,9 +2492,20 @@
       th.classList.remove("sort-asc","sort-desc");
       if (th.dataset.col===sortCol) th.classList.add(sortDir==="asc"?"sort-asc":"sort-desc");
     });
+    // Sorterings-chip: skifter emoji og tooltip afhængigt af aktiv sort
+    const chip = document.querySelector("[data-sort-opsp]");
+    if (chip) {
+      const isOpsp = sortCol === "opsparing";
+      chip.classList.toggle("opsp-active", isOpsp);
+      chip.textContent = isOpsp ? "📈" : "💵";
+      chip.title = isOpsp
+        ? "Sorteret efter samlet opsparing — klik for cashflow"
+        : "Sorteret efter cashflow — klik for samlet opsparing";
+    }
   }
   document.querySelectorAll("th[data-col]").forEach(th => {
-    th.addEventListener("click", () => {
+    th.addEventListener("click", e => {
+      if (e.target.closest("[data-sort-opsp]")) return; // håndteres separat
       const defaultDir = th.dataset.defaultDir || "desc";
       sortDir = sortCol===th.dataset.col ? (sortDir==="asc"?"desc":"asc") : defaultDir;
       sortCol = th.dataset.col;
@@ -2279,6 +2563,7 @@
     document.getElementById("f-maxcommute").value="45";
     document.getElementById("f-udbetaling").value="300000";
     document.getElementById("f-yieldtype").value="finansieret";
+    document.getElementById("f-laantype").value=(loanTypes.find(t=>t.isDefault)||loanTypes[0]||{}).id||"";
     document.getElementById("f-unreg").value="";
     resetTypeChips();
     setChipFilter("all");
@@ -2295,6 +2580,7 @@
     document.getElementById("f-maxcommute").value="";
     document.getElementById("f-udbetaling").value="300000";
     document.getElementById("f-yieldtype").value="finansieret";
+    document.getElementById("f-laantype").value=(loanTypes.find(t=>t.isDefault)||loanTypes[0]||{}).id||"";
     document.getElementById("f-unreg").value="";
     // Alle boligtyper aktive inkl. villalejlighed
     typeIconGroup.querySelectorAll(".type-icon-btn").forEach(btn => btn.classList.add("active"));
@@ -2771,6 +3057,162 @@
       </div>
     `;
   }
+
+  // ── Lånetypekonfiguration modal ───────────────────────
+  const ltModal      = document.getElementById("lt-modal");
+  const ltViewList   = document.getElementById("lt-view-list");
+  const ltViewEdit   = document.getElementById("lt-view-edit");
+  const ltCardsEl    = document.getElementById("lt-cards-container");
+  const ltFooterList = document.getElementById("lt-footer-list");
+  const ltFooterEdit = document.getElementById("lt-footer-edit");
+  let   _ltEditId    = null;   // null = ny, string = eksisterende id
+
+  function openLtModal() {
+    renderLtList();
+    showLtView("list");
+    ltModal.classList.add("open");
+  }
+  function closeLtModal() { ltModal.classList.remove("open"); }
+
+  function showLtView(view) {
+    ltViewList.classList.toggle("active", view === "list");
+    ltViewEdit.classList.toggle("active", view === "edit");
+    ltFooterList.style.display = view === "list" ? "" : "none";
+    ltFooterEdit.style.display = view === "edit" ? "" : "none";
+    document.getElementById("lt-modal-title").textContent =
+      view === "list" ? "Lånetyper" : (_ltEditId ? "Rediger lånetype" : "Ny lånetype");
+  }
+
+  function renderLtList() {
+    ltCardsEl.innerHTML = "";
+    if (!loanTypes.length) {
+      ltCardsEl.innerHTML = "<p style='color:var(--muted);font-size:13px'>Ingen lånetyper endnu. Tilføj en nedenfor.</p>";
+      return;
+    }
+    loanTypes.forEach(t => {
+      const p1 = t.pts[0], p2 = t.pts[1];
+      const card = document.createElement("div");
+      card.className = "lt-card" + (t.isDefault ? " is-default" : "");
+      card.innerHTML = `
+        <div class="lt-card-head">
+          <span class="lt-name">${esc(t.name)}${t.isDefault ? '<span class="lt-badge-default">Standard</span>' : ""}</span>
+        </div>
+        <div class="lt-stats">
+          <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.7">
+            <div>${fmt(p1.laan)}\u00a0kr &rarr; ${fmt(p1.ydelse)}\u00a0ydelse &middot; ${fmt(p1.afdrag)}\u00a0afdrag${p1.etablering ? "\u00a0\u00b7\u00a0"+fmt(p1.etablering)+"\u00a0etab." : ""}</div>
+            <div>${fmt(p2.laan)}\u00a0kr &rarr; ${fmt(p2.ydelse)}\u00a0ydelse &middot; ${fmt(p2.afdrag)}\u00a0afdrag${p2.etablering ? "\u00a0\u00b7\u00a0"+fmt(p2.etablering)+"\u00a0etab." : ""}</div>
+          </div>
+        </div>
+        <div class="lt-actions">
+          ${!t.isDefault ? `<button class="lt-btn btn-default-set" data-lt-setdefault="${t.id}">Sæt som standard</button>` : ""}
+          <button class="lt-btn" data-lt-edit="${t.id}">Rediger</button>
+          ${!t.isDefault ? `<button class="lt-btn btn-danger" data-lt-delete="${t.id}">Slet</button>` : ""}
+        </div>`;
+      ltCardsEl.appendChild(card);
+    });
+    // Events
+    ltCardsEl.querySelectorAll("[data-lt-setdefault]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.ltSetdefault;
+        loanTypes.forEach(t => t.isDefault = t.id === id);
+        saveLoanTypes();
+        populateLaantypeDropdown();
+        renderLtList();
+        renderTable();
+      });
+    });
+    ltCardsEl.querySelectorAll("[data-lt-edit]").forEach(btn => {
+      btn.addEventListener("click", () => openLtEditForm(btn.dataset.ltEdit));
+    });
+    ltCardsEl.querySelectorAll("[data-lt-delete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.ltDelete;
+        const t  = loanTypes.find(x => x.id === id);
+        if (!t || !confirm(`Slet "${t.name}"?`)) return;
+        loanTypes = loanTypes.filter(x => x.id !== id);
+        saveLoanTypes();
+        populateLaantypeDropdown();
+        renderLtList();
+        renderTable();
+      });
+    });
+  }
+
+  function openLtEditForm(id) {
+    _ltEditId = id || null;
+    const t = id ? loanTypes.find(x => x.id === id) : null;
+    document.getElementById("lt-edit-name").value        = t?.name ?? "";
+    document.getElementById("lt-edit-isDefault").checked = t?.isDefault ?? false;
+    document.getElementById("lt-pt1-laan").value         = t?.pts[0].laan        ?? 500000;
+    document.getElementById("lt-pt1-ydelse").value       = t?.pts[0].ydelse      ?? "";
+    document.getElementById("lt-pt1-afdrag").value       = t?.pts[0].afdrag      ?? "";
+    document.getElementById("lt-pt1-etab").value         = t?.pts[0].etablering  ?? "";
+    document.getElementById("lt-pt2-laan").value         = t?.pts[1].laan        ?? 1500000;
+    document.getElementById("lt-pt2-ydelse").value       = t?.pts[1].ydelse      ?? "";
+    document.getElementById("lt-pt2-afdrag").value       = t?.pts[1].afdrag      ?? "";
+    document.getElementById("lt-pt2-etab").value         = t?.pts[1].etablering  ?? "";
+    showLtView("edit");
+  }
+
+  document.getElementById("lt-edit-save").addEventListener("click", () => {
+    const name  = document.getElementById("lt-edit-name").value.trim();
+    const isDef = document.getElementById("lt-edit-isDefault").checked;
+    const p1L   = parseFloat(document.getElementById("lt-pt1-laan").value)   || 0;
+    const p1Y   = parseFloat(document.getElementById("lt-pt1-ydelse").value) || 0;
+    const p1A   = parseFloat(document.getElementById("lt-pt1-afdrag").value) || 0;
+    const p1E   = parseFloat(document.getElementById("lt-pt1-etab").value)   || 0;
+    const p2L   = parseFloat(document.getElementById("lt-pt2-laan").value)   || 0;
+    const p2Y   = parseFloat(document.getElementById("lt-pt2-ydelse").value) || 0;
+    const p2A   = parseFloat(document.getElementById("lt-pt2-afdrag").value) || 0;
+    const p2E   = parseFloat(document.getElementById("lt-pt2-etab").value)   || 0;
+
+    if (!name)        { alert("Angiv et navn.");                        return; }
+    if (p1L >= p2L)   { alert("Punkt 1 lån skal være < Punkt 2 lån."); return; }
+    if (!p1Y || !p2Y) { alert("Angiv ydelse for begge punkter.");      return; }
+
+    if (isDef) loanTypes.forEach(t => t.isDefault = false);
+
+    const newPts = [
+      { laan: p1L, ydelse: p1Y, afdrag: p1A, etablering: p1E },
+      { laan: p2L, ydelse: p2Y, afdrag: p2A, etablering: p2E }
+    ];
+
+    if (_ltEditId) {
+      const t = loanTypes.find(x => x.id === _ltEditId);
+      if (t) { t.name = name; t.isDefault = isDef; t.pts = newPts; }
+    } else {
+      loanTypes.push({ id: "lt_" + Date.now(), name, isDefault: isDef, pts: newPts });
+    }
+    saveLoanTypes();
+    populateLaantypeDropdown();
+    renderTable();
+    renderLtList();
+    showLtView("list");
+  });
+
+  document.getElementById("lt-edit-cancel").addEventListener("click", () => showLtView("list"));
+  document.getElementById("lt-modal-close").addEventListener("click", closeLtModal);
+  document.getElementById("lt-modal-close2").addEventListener("click", closeLtModal);
+  ltModal.addEventListener("click", e => { if (e.target === ltModal) closeLtModal(); });
+  document.getElementById("lt-add-btn").addEventListener("click", () => openLtEditForm(null));
+  document.getElementById("laantype-settings-btn").addEventListener("click", openLtModal);
+
+  // Sorterings-chip: toggle mellem cashflow og opsparing
+  document.querySelectorAll("[data-sort-opsp]").forEach(span => {
+    span.addEventListener("click", e => {
+      e.stopPropagation();
+      if (sortCol === "opsparing") {
+        sortCol = "cashflow_cf"; sortDir = "desc";
+      } else {
+        sortCol = "opsparing";   sortDir = "desc";
+      }
+      renderTable();
+    });
+  });
+
+  // ── Initialisering ────────────────────────────────────
+  loadLoanTypes();
+  populateLaantypeDropdown();
 
   // ── Boot ──────────────────────────────────────────────
   if (getApiKey()) {
