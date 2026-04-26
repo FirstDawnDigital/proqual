@@ -13,6 +13,13 @@ data/ejendom.db-wal
 data/ejendom.db-info
 data/*.log
 
+# SQLite/FUSE midlertidige filer (oprettes mens databasen er åben)
+data/.fuse_hidden*
+data/*.db-journal
+data/test.db
+data/test.db-journal
+ejendomme.db
+
 # Credentials (må ALDRIG komme på GitHub)
 config.env
 google_credentials.json
