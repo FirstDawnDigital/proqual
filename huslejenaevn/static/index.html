@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Huslejenævn — søg afgørelser og adresser</title>
+  <style>
+    /* Minimalt, læsbart udseende — ingen framework, ingen build-step. */
+    :root {
+      --bg: #f7f7f5;
+      --panel: #ffffff;
+      --border: #e1e1dc;
+      --text: #1f1f1f;
+      --muted: #6b6b6b;
+      --accent: #2754c5;
+      --accent-light: #e6edff;
+      --tenant: #1f7a3a;
+      --landlord: #b03030;
+      --shared: #9a6500;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                  font-size: 14px; line-height: 1.45; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header { padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    header .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; background: var(--panel);
+            border-bottom: 2px solid var(--border); padding: 0 20px; }
+    .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 600; border: none;
+               background: none; cursor: pointer; color: var(--muted);
+               border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: flex; min-height: calc(100vh - 90px); }
+
+    .layout { display: flex; width: 100%; }
+    aside.filters { width: 320px; padding: 16px; background: var(--panel);
+                    border-right: 1px solid var(--border); overflow-y: auto;
+                    max-height: calc(100vh - 90px); position: sticky; top: 90px; }
+    main.results { flex: 1; padding: 16px 20px; overflow-x: auto; }
+
+    .filter-group { margin-bottom: 14px; }
+    .filter-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 12px;
+                          text-transform: uppercase; color: var(--muted); letter-spacing: 0.4px; }
+    .filter-group input[type="text"], .filter-group input[type="date"],
+    .filter-group input[type="number"], .filter-group select {
+      width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px;
+      font-size: 13px; background: white; color: var(--text);
+    }
+    .filter-group .date-row { display: flex; gap: 6px; }
+    .filter-group .date-row input { flex: 1; }
+    .filter-buttons { display: flex; gap: 8px; margin-top: 18px; }
+    .filter-buttons button { flex: 1; padding: 8px 12px; border: 1px solid var(--border);
+                              border-radius: 4px; background: white; cursor: pointer; font-size: 13px; }
+    .filter-buttons button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+    .filter-buttons button:hover { filter: brightness(0.95); }
+
+    .results-summary { margin-bottom: 12px; color: var(--muted); }
+    .results-summary strong { color: var(--text); }
+    .sort-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; font-size: 12px; }
+    .sort-bar select { padding: 4px 6px; }
+
+    table.decisions, table.addresses {
+      width: 100%; border-collapse: collapse; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    table.decisions th, table.addresses th {
+      text-align: left; padding: 8px 10px; background: #fafaf8;
+      font-weight: 600; font-size: 12px; color: var(--muted);
+      text-transform: uppercase; border-bottom: 1px solid var(--border); }
+    table.decisions td, table.addresses td {
+      padding: 8px 10px; border-bottom: 1px solid var(--border);
+      font-size: 13px; vertical-align: top; }
+    table.decisions tr:last-child td, table.addresses tr:last-child td { border-bottom: none; }
+    table.decisions tr.row-link { cursor: pointer; }
+    table.decisions tr.row-link:hover { background: var(--accent-light); }
+
+    .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px;
+              font-weight: 600; white-space: nowrap; }
+    .badge.tenant { background: #e0f5e9; color: var(--tenant); }
+    .badge.landlord { background: #fae0e0; color: var(--landlord); }
+    .badge.shared { background: #fef0d0; color: var(--shared); }
+    .badge.notset { background: #ececec; color: var(--muted); }
+
+    /* Rent-metode-badge til adresser */
+    .method-badge { display: inline-block; padding: 1px 6px; border-radius: 10px;
+                    font-size: 11px; font-weight: 500; white-space: nowrap; }
+    .method-badge.expenses  { background: #e8f0fe; color: #1a56cc; }
+    .method-badge.comparable{ background: #fef3c7; color: #92400e; }
+    .method-badge.market    { background: #fde8e8; color: #9b1c1c; }
+    .method-badge.unknown   { background: #ececec; color: var(--muted); }
+
+    .pager { display: flex; gap: 8px; justify-content: center; align-items: center;
+              margin: 16px 0; font-size: 13px; }
+    .pager button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px;
+                     background: white; cursor: pointer; }
+    .pager button:disabled { opacity: 0.4; cursor: default; }
+
+    /* Detail-overlay */
+    .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none;
+                       z-index: 50; }
+    .detail-overlay.open { display: flex; align-items: stretch; justify-content: flex-end; }
+    .detail-panel { width: 540px; max-width: 100vw; background: white; height: 100vh;
+                     overflow-y: auto; box-shadow: -4px 0 12px rgba(0,0,0,0.1); padding: 20px; }
+    .detail-panel h2 { margin: 0 0 4px; font-size: 16px; }
+    .detail-panel .close { float: right; background: none; border: none; cursor: pointer;
+                            font-size: 18px; color: var(--muted); padding: 0 6px; }
+    .detail-panel dl { display: grid; grid-template-columns: 160px 1fr; gap: 4px 14px; margin: 16px 0; }
+    .detail-panel dt { color: var(--muted); font-size: 12px; padding-top: 2px; }
+    .detail-panel dd { margin: 0; font-size: 13px; }
+    .detail-panel section { margin: 18px 0; padding-top: 12px; border-top: 1px solid var(--border); }
+    .detail-panel section h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+                                color: var(--muted); letter-spacing: 0.4px; font-weight: 600; }
+    .detail-panel ul { margin: 0; padding-left: 18px; }
+    .detail-panel ul li { margin-bottom: 4px; }
+
+    .notice { padding: 12px 16px; background: #fffbeb; border: 1px solid #fcd34d;
+              border-radius: 6px; margin-bottom: 16px; font-size: 13px; color: #78350f; }
+    .empty { padding: 40px; text-align: center; color: var(--muted); background: var(--panel);
+              border: 1px dashed var(--border); border-radius: 6px; }
+    .loading { color: var(--muted); padding: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Huslejenævn</h1>
+    <div class="sub" id="meta-line">Indlæser …</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="decisions" type="button">Afgørelser</button>
+    <button class="tab-btn" data-tab="addresses" type="button">Adresser m. fastsat leje</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       TAB 1: AFGØRELSER
+  ════════════════════════════════════════════════ -->
+  <div class="tab-content active" id="tab-decisions">
+    <div class="layout">
+      <aside class="filters">
+        <div class="filter-group">
+          <label for="f-q">Fri tekst (case-id, serial)</label>
+          <input type="text" id="f-q" placeholder="fx 012535-2012" />
+        </div>
+
+        <div class="filter-group">
+          <label for="f-municipality">Kommune</label>
+          <select id="f-municipality"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label>Dato (afgørelse)</label>
+          <div class="date-row">
+            <input type="date" id="f-date-from" />
+            <input type="date" id="f-date-to" />
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-in-favour">Til fordel for</label>
+          <select id="f-in-favour"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-reason">Udfald (reason for closing)</label>
+          <select id="f-reason"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-board">Nævn</label>
+          <select id="f-board"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-submitter">Indbragt af</label>
+          <select id="f-submitter"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-inspect">Besigtigelse</label>
+          <select id="f-inspect"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-public">Generel offentlig interesse</label>
+          <select id="f-public"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-fee">Gebyrpålæg</label>
+          <select id="f-fee"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-status">Status</label>
+          <select id="f-status"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="f-law">Lovhjemmel (substring)</label>
+          <input type="text" id="f-law" placeholder="fx Boligreguleringsloven" />
+        </div>
+
+        <div class="filter-buttons">
+          <button id="btn-search" class="primary" type="button">Søg</button>
+          <button id="btn-reset" type="button">Nulstil</button>
+        </div>
+      </aside>
+
+      <main class="results">
+        <div class="results-summary" id="summary">Søger …</div>
+
+        <div class="sort-bar">
+          Sortér efter:
+          <select id="sort">
+            <option value="date_of_decision">Afgørelsesdato</option>
+            <option value="date_of_filing">Indgivelsesdato</option>
+            <option value="date_of_publishing">Offentliggørelsesdato</option>
+            <option value="municipality_name">Kommune</option>
+            <option value="in_favour">Til fordel for</option>
+            <option value="reason_for_closing">Udfald</option>
+          </select>
+          <select id="order">
+            <option value="desc">Nyeste først</option>
+            <option value="asc">Ældste først</option>
+          </select>
+        </div>
+
+        <div id="results-area"></div>
+        <div class="pager" id="pager" style="display:none">
+          <button id="prev" type="button">← Forrige</button>
+          <span id="page-info"></span>
+          <button id="next" type="button">Næste →</button>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       TAB 2: ADRESSER MED FASTSAT LEJE
+  ════════════════════════════════════════════════ -->
+  <div class="tab-content" id="tab-addresses">
+    <div class="layout">
+      <aside class="filters">
+        <div class="filter-group">
+          <label for="af-q">Adresse (fri tekst)</label>
+          <input type="text" id="af-q" placeholder="fx Frederiksberg Allé" />
+        </div>
+
+        <div class="filter-group">
+          <label for="af-municipality">Kommune</label>
+          <select id="af-municipality"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-group">
+          <label for="af-postal">Postnummer</label>
+          <input type="number" id="af-postal" placeholder="fx 2000" min="1000" max="9999" />
+        </div>
+
+        <div class="filter-group">
+          <label>Dato (lejefastsættelse)</label>
+          <div class="date-row">
+            <input type="date" id="af-date-from" />
+            <input type="date" id="af-date-to" />
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label for="af-method">Metode</label>
+          <select id="af-method"><option value="">Alle</option></select>
+        </div>
+
+        <div class="filter-buttons">
+          <button id="af-btn-search" class="primary" type="button">Søg</button>
+          <button id="af-btn-reset" type="button">Nulstil</button>
+        </div>
+
+        <div id="addr-meta-info" style="margin-top:18px; font-size:12px; color:var(--muted);"></div>
+      </aside>
+
+      <main class="results">
+        <div class="results-summary" id="addr-summary">Søger …</div>
+
+        <div class="sort-bar">
+          Sortér efter:
+          <select id="addr-sort">
+            <option value="date_of_rent_determination">Fastsættelsesdato</option>
+            <option value="rent_raw">Leje kr/m²/år</option>
+            <option value="gross_area">Areal (m²)</option>
+            <option value="municipality_name">Kommune</option>
+            <option value="postal_number">Postnummer</option>
+          </select>
+          <select id="addr-order">
+            <option value="desc">Højest/nyeste først</option>
+            <option value="asc">Lavest/ældste først</option>
+          </select>
+        </div>
+
+        <div id="addr-results-area"></div>
+        <div class="pager" id="addr-pager" style="display:none">
+          <button id="addr-prev" type="button">← Forrige</button>
+          <span id="addr-page-info"></span>
+          <button id="addr-next" type="button">Næste →</button>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Detail-overlay (kun afgørelser) -->
+  <div class="detail-overlay" id="overlay">
+    <div class="detail-panel" id="detail-panel">
+      <button class="close" id="close-detail" type="button">×</button>
+      <div id="detail-content" class="loading">Indlæser …</div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+const decState = { offset: 0, limit: 50, total: 0 };
+const addrState = { offset: 0, limit: 50, total: 0 };
+const $ = (id) => document.getElementById(id);
+
+// ─────────────────────────────────────────────
+// Enum-oversættelser
+// ─────────────────────────────────────────────
+const enumDanish = {
+  TENANT: "Lejer", LANDLORD: "Udlejer", SHARED: "Delt", NOT_SET: "Ikke angivet",
+  IN_FAVOUR: "Medhold", IN_PARTIAL_FAVOUR: "Delvist medhold", REJECTED: "Afvist",
+  HELD: "Afholdt", NOT_HELD: "Ikke afholdt",
+  YES: "Ja", NO: "Nej",
+  RENT_BOARD: "Huslejenævn", RESIDENT_COMPLAINTS_BOARD: "Beboerklagenævn",
+  OPEN: "Åben", CLOSED: "Lukket",
+  BASED_ON_EXPENSES: "Omkostningsbestemt",
+  BASED_ON_COMPARABLE_RENTS: "Sammenligningslejemål",
+  BASED_ON_FREE_MARKET_PRICE: "Fri markedspris",
+  TENANCY_SPECIFIC_RENT: "Lejemålsspecifik",
+  EXAMPLE_RENT: "Eksempelleje",
+  MONTHLY_RENT: "Månedsleje",
+  ANNUAL_RENT_PER_SQUARE_METERS: "Årsleje/m²",
+};
+const da = (v) => v == null ? "" : (enumDanish[v] || v);
+
+const inFavourBadge = (v) => {
+  if (!v || v === "NOT_SET") return `<span class="badge notset">${da(v) || "—"}</span>`;
+  const cls = v === "TENANT" ? "tenant" : v === "LANDLORD" ? "landlord" : "shared";
+  return `<span class="badge ${cls}">${da(v)}</span>`;
+};
+
+const methodBadge = (v) => {
+  if (!v || v === "NOT_SET") return `<span class="method-badge unknown">—</span>`;
+  const cls = v === "BASED_ON_EXPENSES" ? "expenses"
+            : v === "BASED_ON_COMPARABLE_RENTS" ? "comparable"
+            : v === "BASED_ON_FREE_MARKET_PRICE" ? "market" : "unknown";
+  const short = v === "BASED_ON_EXPENSES" ? "Omk." : v === "BASED_ON_COMPARABLE_RENTS" ? "Sammenligning" : "Marked";
+  return `<span class="method-badge ${cls}" title="${da(v)}">${short}</span>`;
+};
+
+const fmtDate = (s) => s ? s.slice(0, 10) : "";
+const fmtNum = (n, dec = 0) =>
+  n == null ? "—" : n.toLocaleString("da-DK", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// ─────────────────────────────────────────────
+// Tab-skift
+// ─────────────────────────────────────────────
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ─────────────────────────────────────────────
+// Init meta (afgørelser)
+// ─────────────────────────────────────────────
+async function loadMeta() {
+  const meta = await fetch("/api/meta").then(r => r.json());
+
+  $("meta-line").textContent =
+    `${meta.total_decisions.toLocaleString("da-DK")} afgørelser` +
+    (meta.date_range.min ? ` · ${meta.date_range.min} – ${meta.date_range.max}` : "") +
+    ` · ${meta.municipalities.length} kommuner`;
+
+  const muniSel = $("f-municipality");
+  for (const m of meta.municipalities) {
+    const opt = document.createElement("option");
+    opt.value = m.name;
+    opt.textContent = `${m.name} (${m.count.toLocaleString("da-DK")})`;
+    muniSel.appendChild(opt);
+  }
+
+  if (meta.date_range.min) $("f-date-from").placeholder = meta.date_range.min;
+  if (meta.date_range.max) $("f-date-to").placeholder = meta.date_range.max;
+
+  const fillEnum = (selId, col) => {
+    const sel = $(selId);
+    for (const it of (meta.breakdowns[col] || [])) {
+      if (!it.value) continue;
+      const opt = document.createElement("option");
+      opt.value = it.value;
+      opt.textContent = `${da(it.value)} (${it.count.toLocaleString("da-DK")})`;
+      sel.appendChild(opt);
+    }
+  };
+  fillEnum("f-in-favour",   "in_favour");
+  fillEnum("f-reason",      "reason_for_closing");
+  fillEnum("f-board",       "decisive_board");
+  fillEnum("f-submitter",   "submitter");
+  fillEnum("f-inspect",     "locally_inspected");
+  fillEnum("f-public",      "general_public_interest");
+  fillEnum("f-fee",         "imposition_of_fee");
+  fillEnum("f-status",      "case_status");
+}
+
+// ─────────────────────────────────────────────
+// Init meta (adresser)
+// ─────────────────────────────────────────────
+async function loadAddrMeta() {
+  const meta = await fetch("/api/meta/addresses").then(r => r.json());
+  const total = meta.total_addresses;
+
+  // Vis info i sidebar
+  const info = $("addr-meta-info");
+  if (total === 0) {
+    info.innerHTML = `<div class="notice">
+      Ingen adresser i databasen endnu.<br>
+      Kør: <code>python main.py --huslejenaevn-sync</code>
+    </div>`;
+  } else {
+    info.textContent = `${total.toLocaleString("da-DK")} adresser i alt` +
+      (meta.date_range.min ? ` · ${meta.date_range.min} – ${meta.date_range.max}` : "");
+  }
+
+  const muniSel = $("af-municipality");
+  for (const m of (meta.municipalities || [])) {
+    const opt = document.createElement("option");
+    opt.value = m.name;
+    opt.textContent = `${m.name} (${m.count.toLocaleString("da-DK")})`;
+    muniSel.appendChild(opt);
+  }
+
+  const methodSel = $("af-method");
+  for (const it of (meta.breakdowns?.method_of_rent_determination || [])) {
+    if (!it.value) continue;
+    const opt = document.createElement("option");
+    opt.value = it.value;
+    opt.textContent = `${da(it.value)} (${it.count.toLocaleString("da-DK")})`;
+    methodSel.appendChild(opt);
+  }
+}
+
+// ─────────────────────────────────────────────
+// Afgørelsessøgning
+// ─────────────────────────────────────────────
+const buildDecQs = () => {
+  const qs = new URLSearchParams();
+  const add = (k, v) => { if (v) qs.set(k, v); };
+  add("q",                        $("f-q").value.trim());
+  add("municipality",             $("f-municipality").value);
+  add("date_from",                $("f-date-from").value);
+  add("date_to",                  $("f-date-to").value);
+  add("in_favour",                $("f-in-favour").value);
+  add("reason_for_closing",       $("f-reason").value);
+  add("decisive_board",           $("f-board").value);
+  add("submitter",                $("f-submitter").value);
+  add("locally_inspected",        $("f-inspect").value);
+  add("general_public_interest",  $("f-public").value);
+  add("imposition_of_fee",        $("f-fee").value);
+  add("case_status",              $("f-status").value);
+  add("law",                      $("f-law").value.trim());
+  add("sort",                     $("sort").value);
+  add("order",                    $("order").value);
+  qs.set("limit",  decState.limit);
+  qs.set("offset", decState.offset);
+  return qs.toString();
+};
+
+async function search() {
+  $("summary").textContent = "Søger …";
+  const r = await fetch("/api/decisions?" + buildDecQs()).then(r => r.json());
+  decState.total = r.total;
+  renderResults(r);
+  renderPager();
+}
+
+function renderResults({items, total, offset, limit}) {
+  const area = $("results-area");
+  $("summary").innerHTML = total === 0
+    ? "Ingen afgørelser matchede"
+    : `<strong>${total.toLocaleString("da-DK")}</strong> afgørelser fundet · viser ${offset + 1}–${Math.min(offset + items.length, total)}`;
+
+  if (!items.length) {
+    area.innerHTML = `<div class="empty">Ingen resultater. Prøv at justere filtrene.</div>`;
+    return;
+  }
+
+  const rows = items.map(d => `
+    <tr class="row-link" data-id="${d.api_id}">
+      <td>${fmtDate(d.date_of_decision)}</td>
+      <td>${escapeHtml(d.municipality_name || "")}</td>
+      <td>${escapeHtml(d.case_identifier || d.serial_number || "")}</td>
+      <td>${inFavourBadge(d.in_favour)}</td>
+      <td>${escapeHtml(da(d.reason_for_closing))}</td>
+      <td>${escapeHtml(da(d.decisive_board))}</td>
+      <td>${escapeHtml(da(d.submitter))}</td>
+    </tr>`).join("");
+
+  area.innerHTML = `
+    <table class="decisions">
+      <thead>
+        <tr>
+          <th>Dato</th><th>Kommune</th><th>Sag</th><th>Til fordel for</th>
+          <th>Udfald</th><th>Nævn</th><th>Indbragt af</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  area.querySelector("tbody").addEventListener("click", e => {
+    const tr = e.target.closest("tr.row-link");
+    if (tr) openDetail(tr.dataset.id);
+  });
+}
+
+function renderPager() {
+  const pager = $("pager");
+  if (decState.total <= decState.limit) { pager.style.display = "none"; return; }
+  pager.style.display = "flex";
+  $("prev").disabled = decState.offset === 0;
+  $("next").disabled = decState.offset + decState.limit >= decState.total;
+  const page = Math.floor(decState.offset / decState.limit) + 1;
+  const totalPages = Math.ceil(decState.total / decState.limit);
+  $("page-info").textContent = `Side ${page} af ${totalPages}`;
+}
+
+// ─────────────────────────────────────────────
+// Adressesøgning
+// ─────────────────────────────────────────────
+const buildAddrQs = () => {
+  const qs = new URLSearchParams();
+  const add = (k, v) => { if (v) qs.set(k, v); };
+  add("q",            $("af-q").value.trim());
+  add("municipality", $("af-municipality").value);
+  add("postal_number",$("af-postal").value.trim());
+  add("date_from",    $("af-date-from").value);
+  add("date_to",      $("af-date-to").value);
+  add("method",       $("af-method").value);
+  add("sort",         $("addr-sort").value);
+  add("order",        $("addr-order").value);
+  qs.set("limit",  addrState.limit);
+  qs.set("offset", addrState.offset);
+  return qs.toString();
+};
+
+async function searchAddresses() {
+  $("addr-summary").textContent = "Søger …";
+  const r = await fetch("/api/addresses?" + buildAddrQs()).then(r => r.json());
+  addrState.total = r.total;
+  renderAddresses(r);
+  renderAddrPager();
+}
+
+function renderAddresses({items, total, offset}) {
+  const area = $("addr-results-area");
+  $("addr-summary").innerHTML = total === 0
+    ? "Ingen adresser matchede"
+    : `<strong>${total.toLocaleString("da-DK")}</strong> adresser fundet · viser ${offset + 1}–${Math.min(offset + items.length, total)}`;
+
+  if (!items.length) {
+    area.innerHTML = `<div class="empty">Ingen resultater. Kør sync hvis tabellen er tom.</div>`;
+    return;
+  }
+
+  const rows = items.map(a => {
+    // Beregnet månedsleje — brug API-felt hvis sat, ellers beregn
+    const monthly = a.rent_monthly_calc;
+    const monthlyStr = monthly != null ? `${fmtNum(monthly)} kr/md` : "—";
+    const rentPerSqm = a.rent_raw != null ? `${fmtNum(a.rent_raw)} kr/m²/år` : "—";
+    const area_m2 = a.gross_area != null ? `${fmtNum(a.gross_area)} m²` : "—";
+
+    return `
+      <tr>
+        <td>${fmtDate(a.date_of_rent_determination)}</td>
+        <td title="${escapeHtml(a.designation || "")}">${escapeHtml(a.designation || a.street_name || "")}</td>
+        <td>${escapeHtml(String(a.postal_number || ""))} ${escapeHtml(a.municipality_name || "")}</td>
+        <td style="text-align:right; white-space:nowrap">${rentPerSqm}</td>
+        <td style="text-align:right; white-space:nowrap">${area_m2}</td>
+        <td style="text-align:right; white-space:nowrap; font-weight:600">${monthlyStr}</td>
+        <td>${methodBadge(a.method_of_rent_determination)}</td>
+      </tr>`;
+  }).join("");
+
+  area.innerHTML = `
+    <table class="addresses">
+      <thead>
+        <tr>
+          <th>Dato</th><th>Adresse</th><th>By</th>
+          <th style="text-align:right">Kr/m²/år</th>
+          <th style="text-align:right">Areal</th>
+          <th style="text-align:right">Est. kr/md</th>
+          <th>Metode</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderAddrPager() {
+  const pager = $("addr-pager");
+  if (addrState.total <= addrState.limit) { pager.style.display = "none"; return; }
+  pager.style.display = "flex";
+  $("addr-prev").disabled = addrState.offset === 0;
+  $("addr-next").disabled = addrState.offset + addrState.limit >= addrState.total;
+  const page = Math.floor(addrState.offset / addrState.limit) + 1;
+  const totalPages = Math.ceil(addrState.total / addrState.limit);
+  $("addr-page-info").textContent = `Side ${page} af ${totalPages}`;
+}
+
+// ─────────────────────────────────────────────
+// Detail-panel (afgørelser)
+// ─────────────────────────────────────────────
+async function openDetail(apiId) {
+  const overlay = $("overlay");
+  const content = $("detail-content");
+  content.innerHTML = `<div class="loading">Indlæser …</div>`;
+  overlay.classList.add("open");
+
+  try {
+    const d = await fetch(`/api/decision/${encodeURIComponent(apiId)}`).then(r => r.json());
+    if (d.error) {
+      content.innerHTML = `<div class="empty">Fandt ikke afgørelsen: ${escapeHtml(d.error)}</div>`;
+      return;
+    }
+
+    const stats = (d.statutories || []).map(s => `
+      <li>
+        ${escapeHtml(s.lawText || "")}
+        ${s.chapterText ? `· kap. ${escapeHtml(s.chapterText)}` : ""}
+        ${s.sectionText ? `· §${escapeHtml(s.sectionText)}` : ""}
+      </li>`).join("");
+
+    content.innerHTML = `
+      <h2>${escapeHtml(d.case_identifier || d.serial_number || "Sag uden navn")}</h2>
+      <div style="color:var(--muted); font-size:12px; margin-bottom:8px;">
+        ${escapeHtml(d.municipality_name || "")} · ${fmtDate(d.date_of_decision)}
+      </div>
+      ${inFavourBadge(d.in_favour)}
+      ${d.reason_for_closing ? `<span class="badge notset" style="margin-left:6px">${escapeHtml(da(d.reason_for_closing))}</span>` : ""}
+
+      <dl>
+        <dt>Sagsnummer</dt><dd>${escapeHtml(d.case_identifier || "—")}</dd>
+        <dt>Serienummer</dt><dd>${escapeHtml(d.serial_number || "—")}</dd>
+        <dt>Status</dt><dd>${escapeHtml(da(d.case_status))}</dd>
+        <dt>Indgivelse</dt><dd>${fmtDate(d.date_of_filing) || "—"}</dd>
+        <dt>Afgørelse</dt><dd>${fmtDate(d.date_of_decision) || "—"}</dd>
+        <dt>Offentliggørelse</dt><dd>${fmtDate(d.date_of_publishing) || "—"}</dd>
+        <dt>Nævn</dt><dd>${escapeHtml(da(d.decisive_board))}</dd>
+        <dt>Indbragt af</dt><dd>${escapeHtml(da(d.submitter))}</dd>
+        <dt>Til fordel for</dt><dd>${escapeHtml(da(d.in_favour))}</dd>
+        <dt>Udfald</dt><dd>${escapeHtml(da(d.reason_for_closing))}</dd>
+        <dt>Besigtigelse</dt><dd>${escapeHtml(da(d.locally_inspected))}</dd>
+        <dt>Off. interesse</dt><dd>${escapeHtml(da(d.general_public_interest))}</dd>
+        <dt>Gebyrpålæg</dt><dd>${escapeHtml(da(d.imposition_of_fee))}</dd>
+      </dl>
+
+      ${stats ? `<section><h3>Lovhjemler</h3><ul>${stats}</ul></section>` : ""}
+
+      ${d.pdf_url ? `
+        <section>
+          <h3>Afgørelsesdokument</h3>
+          <a href="${d.pdf_url}" target="_blank" rel="noopener">Åbn PDF på huslejenaevn.dk →</a>
+        </section>` : ""}
+
+      <section>
+        <h3>Rå data</h3>
+        <details>
+          <summary style="cursor:pointer; color:var(--muted);">Vis raw_json</summary>
+          <pre style="background:#fafaf8; padding:10px; border-radius:4px; font-size:11px;
+                       overflow-x:auto; white-space:pre-wrap; word-break:break-word;">${escapeHtml(JSON.stringify(d.raw, null, 2))}</pre>
+        </details>
+      </section>
+    `;
+  } catch (e) {
+    content.innerHTML = `<div class="empty">Fejl: ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+function closeDetail() { $("overlay").classList.remove("open"); }
+
+// ─────────────────────────────────────────────
+// Wire-up
+// ─────────────────────────────────────────────
+function decResetAndSearch() { decState.offset = 0; search(); }
+function addrResetAndSearch() { addrState.offset = 0; searchAddresses(); }
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // Hent begge meta-sæt parallelt
+  await Promise.all([loadMeta(), loadAddrMeta()]);
+
+  // Kør initiel søgning på begge tabs
+  search();
+  searchAddresses();
+
+  // ── Afgørelser ──
+  $("btn-search").addEventListener("click", decResetAndSearch);
+  $("btn-reset").addEventListener("click", () => {
+    document.querySelectorAll("#tab-decisions aside.filters input, #tab-decisions aside.filters select")
+      .forEach(el => { if (el.tagName === "SELECT") el.selectedIndex = 0; else el.value = ""; });
+    decResetAndSearch();
+  });
+  $("sort").addEventListener("change", decResetAndSearch);
+  $("order").addEventListener("change", decResetAndSearch);
+  $("prev").addEventListener("click", () => { decState.offset = Math.max(0, decState.offset - decState.limit); search(); });
+  $("next").addEventListener("click", () => { decState.offset += decState.limit; search(); });
+
+  ["f-q", "f-law", "f-date-from", "f-date-to"].forEach(id => {
+    $(id).addEventListener("keydown", e => { if (e.key === "Enter") decResetAndSearch(); });
+  });
+
+  // ── Adresser ──
+  $("af-btn-search").addEventListener("click", addrResetAndSearch);
+  $("af-btn-reset").addEventListener("click", () => {
+    document.querySelectorAll("#tab-addresses aside.filters input, #tab-addresses aside.filters select")
+      .forEach(el => { if (el.tagName === "SELECT") el.selectedIndex = 0; else el.value = ""; });
+    addrResetAndSearch();
+  });
+  $("addr-sort").addEventListener("change", addrResetAndSearch);
+  $("addr-order").addEventListener("change", addrResetAndSearch);
+  $("addr-prev").addEventListener("click", () => { addrState.offset = Math.max(0, addrState.offset - addrState.limit); searchAddresses(); });
+  $("addr-next").addEventListener("click", () => { addrState.offset += addrState.limit; searchAddresses(); });
+
+  ["af-q", "af-postal", "af-date-from", "af-date-to"].forEach(id => {
+    $(id).addEventListener("keydown", e => { if (e.key === "Enter") addrResetAndSearch(); });
+  });
+
+  // ── Detail-overlay ──
+  $("close-detail").addEventListener("click", closeDetail);
+  $("overlay").addEventListener("click", e => { if (e.target.id === "overlay") closeDetail(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
+});
+</script>
+</body>
+</html>

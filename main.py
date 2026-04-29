@@ -36,6 +36,7 @@ from database import (
     insert_rental_listing,
     insert_property_for_sale,
     calculate_and_save_aggregates,
+    calculate_and_save_zip_rates,
     get_rental_summary,
     get_data_quality,
     mark_stale_listings_inactive,
@@ -248,10 +249,14 @@ def run_mark_inactive(db_path: str, days_threshold: int = 30) -> int:
 
 
 def run_aggregation(db_path: str) -> int:
-    """Beregn aggregater og gem dem."""
+    """Beregn aggregater og gem dem (inkl. V2 zip-rater)."""
     console.print("[cyan]→ Beregner huslejeaggregater pr. postnummer...[/cyan]")
     count = calculate_and_save_aggregates(db_path)
     console.print(f"[green]✓ Aggregering: {count} postnummer/rum-kombinationer beregnet[/green]")
+
+    console.print("[cyan]→ Beregner V2 zip-rater (forventet leje-model)...[/cyan]")
+    zip_count = calculate_and_save_zip_rates(db_path)
+    console.print(f"[green]✓ V2 zip-rater: {zip_count} postnumre med tilstrækkeligt data[/green]")
     return count
 
 
@@ -307,6 +312,52 @@ def run_static_export(db_path: str):
         logger.warning(f"Statisk HTML-eksport fejlede: {e}")
 
 
+def run_huslejenaevn_sync(
+    db_path: str,
+    only_municipality: str | None = None,
+    backfill: bool = False,
+) -> int:
+    """
+    Synkronisér afgørelser og adresser fra huslejenaevn.dk GraphQL-API'et.
+    Returnér antal kommuner hvor sync gennemførtes uden fejl.
+
+    backfill=True ignorerer resume-cursor og refetcher alle records — bruges
+    efter en schema-udvidelse for at populere nye kolonner via UPSERT.
+    """
+    try:
+        from huslejenaevn.fetcher import run_sync
+    except ImportError as e:
+        console.print(f"[red]Kunne ikke importere huslejenaevn.fetcher: {e}[/red]")
+        return 0
+
+    try:
+        stats_list = run_sync(
+            db_path,
+            only_municipality=only_municipality,
+            force_full=backfill,
+        )
+    except Exception as e:
+        console.print(f"[red]Huslejenævn-sync fejlede: {e}[/red]")
+        logger.error(f"Huslejenaevn sync fejlede: {e}", exc_info=True)
+        return 0
+
+    return sum(1 for s in stats_list if not s.error)
+
+
+def run_backup(db_path: str):
+    """Eksportér JSON-backup af property_annotations, rental_zip_rates og rental_listings til backups/."""
+    try:
+        from webapp.backup import export_backups
+        result = export_backups(db_path=Path(db_path))
+        if result["ok"]:
+            console.print(f"[green]✓ Backup fuldført: {len(result['files'])} filer[/green]")
+        else:
+            console.print(f"[yellow]Backup: {result['error']}[/yellow]")
+    except Exception as e:
+        console.print(f"[yellow]Backup fejlede: {e}[/yellow]")
+        logger.warning(f"Backup fejlede: {e}")
+
+
 def run_full_pipeline(db_path: str, days_back: int = 7):
     """Kør hele pipelinen: email → scraping → inaktivitet → aggregering → Sheets."""
     start = datetime.now()
@@ -314,7 +365,7 @@ def run_full_pipeline(db_path: str, days_back: int = 7):
 
     run_email_pipeline(db_path, days_back)
     run_scraping_pipeline(db_path)
-    run_listing_status_check(db_path, max_per_run=100, delay=2.0)
+    run_listing_status_check(db_path, max_per_run=500, delay=2.0)
     run_mark_inactive(db_path, days_threshold=30)
     run_aggregation(db_path)
     run_sheets_export(db_path)
@@ -670,6 +721,65 @@ def cmd_status(db_path: str):
                 "indtil live-verificering er gennemført[/yellow]"
             )
 
+    # ── Huslejenævnsdata (hvis tabellerne er initialiseret) ──
+    try:
+        from huslejenaevn.db import get_huslejenaevn_summary
+        hn = get_huslejenaevn_summary(db_path)
+    except Exception as e:
+        logger.debug(f"Kunne ikke hente huslejenaevn-summary: {e}")
+        hn = {"initialized": False}
+
+    if hn.get("initialized"):
+        console.print()
+        hn_table = Table(title="Huslejenævnsdata", show_header=True)
+        hn_table.add_column("Kategori", style="cyan")
+        hn_table.add_column("Antal", justify="right", style="green")
+        hn_table.add_row("Afgørelser i alt", str(hn["decisions_total"]))
+        hn_table.add_row("Adresser m. fastsat leje", str(hn["addresses_total"]))
+        if hn.get("latest_decision_date"):
+            hn_table.add_row("Seneste afgørelsesdato", hn["latest_decision_date"][:10])
+        if hn.get("latest_address_date"):
+            hn_table.add_row("Seneste lejefastsættelse", hn["latest_address_date"][:10])
+        console.print(hn_table)
+
+        if hn.get("by_in_favour"):
+            console.print()
+            favour_table = Table(title="Afgørelser fordelt på udfald", show_header=True)
+            favour_table.add_column("Udfald", style="cyan")
+            favour_table.add_column("Antal", justify="right")
+            for k, v in sorted(hn["by_in_favour"].items(), key=lambda kv: -kv[1]):
+                favour_table.add_row(k, str(v))
+            console.print(favour_table)
+
+        # Procedurelt udfald (komplementær til inFavour — fortæller "blev klagen"
+        # taget til følge?" på tværs af parten der vandt).
+        if hn.get("by_closing") and any(k != "(null)" for k in hn["by_closing"]):
+            console.print()
+            closing_table = Table(title="Afgørelser fordelt på procedurelt udfald", show_header=True)
+            closing_table.add_column("Reason for closing", style="cyan")
+            closing_table.add_column("Antal", justify="right")
+            for k, v in sorted(hn["by_closing"].items(), key=lambda kv: -kv[1]):
+                closing_table.add_row(k, str(v))
+            console.print(closing_table)
+
+        if hn.get("by_inspection") and any(k != "(null)" for k in hn["by_inspection"]):
+            console.print()
+            inspect_table = Table(title="Besigtigelse på adressen", show_header=True)
+            inspect_table.add_column("Locally inspected", style="cyan")
+            inspect_table.add_column("Antal", justify="right")
+            for k, v in sorted(hn["by_inspection"].items(), key=lambda kv: -kv[1]):
+                inspect_table.add_row(k, str(v))
+            console.print(inspect_table)
+
+        if hn.get("by_public_interest") and any(k != "(null)" for k in hn["by_public_interest"]):
+            console.print()
+            pi_table = Table(title="Afgørelser m. generel offentlig interesse", show_header=True)
+            pi_table.add_column("General public interest", style="cyan")
+            pi_table.add_column("Antal", justify="right")
+            for k, v in sorted(hn["by_public_interest"].items(), key=lambda kv: -kv[1]):
+                pi_table.add_row(k, str(v))
+            console.print(pi_table)
+
     # ── Top-postnumre ──
     if q['top_zips']:
         console.print()
@@ -945,6 +1055,7 @@ def main():
     parser.add_argument('--export-sheets', action='store_true', help='Eksporter til Google Sheets')
     parser.add_argument('--export-static', action='store_true', help='Eksportér statisk HTML til docs/index.html (GitHub Pages)')
     parser.add_argument('--sync-turso', action='store_true', help='Synkroniser lokal SQLite til Turso (kræver TURSO_URL i config.env)')
+    parser.add_argument('--export-backups', action='store_true', help='Eksportér JSON-backup af annotationer og lejedata til backups/')
     parser.add_argument('--days-back', type=int, default=7, help='Antal dage bagud for email-parsing (default: 7)')
     parser.add_argument('--interval-hours', type=int, default=6, help='Timer mellem kørsler ved --schedule (default: 6)')
     parser.add_argument('--analyze-cities', action='store_true', help='Tør-kørsel: vis alle byer parseren ser og hvilke der mangler postnummer')
@@ -974,6 +1085,17 @@ def main():
     parser.add_argument('--commute-force', action='store_true',
                         help='Genberegn køretid selv for boliger der allerede har data')
 
+    # ── Huslejenævn (afgørelser + adresser fra huslejenaevn.dk GraphQL) ──
+    parser.add_argument('--huslejenaevn-sync', action='store_true',
+                        help='Synkronisér afgørelser og adresser fra huslejenaevn.dk')
+    parser.add_argument('--huslejenaevn-municipality', metavar='NAVN', default=None,
+                        help='Begræns sync til én kommune (f.eks. "København") — bruges til test')
+    parser.add_argument('--huslejenaevn-backfill', action='store_true',
+                        help='Refetch alle records fra DATE_FLOOR for at populere nye kolonner '
+                             '(ignorerer resume-cursor — kør efter schema-udvidelse)')
+    parser.add_argument('--huslejenaevn-webapp', action='store_true',
+                        help='Start huslejenævns-webapp på http://localhost:5051/')
+
     args = parser.parse_args()
 
     # Sikr at database eksisterer
@@ -1000,6 +1122,8 @@ def main():
         run_static_export(db_path)
     elif args.sync_turso:
         run_turso_sync(db_path)
+    elif args.export_backups:
+        run_backup(db_path)
     elif args.analyze_cities:
         cmd_analyze_cities(days_back=args.days_back)
     elif args.validate_listings:
@@ -1017,6 +1141,15 @@ def main():
         )
     elif args.debug_boligsiden:
         cmd_debug_boligsiden(args.debug_boligsiden)
+    elif args.huslejenaevn_sync:
+        run_huslejenaevn_sync(
+            db_path,
+            only_municipality=args.huslejenaevn_municipality,
+            backfill=args.huslejenaevn_backfill,
+        )
+    elif args.huslejenaevn_webapp:
+        from huslejenaevn.webapp import main as webapp_main
+        webapp_main()
     elif args.enrich_commute:
         from enrichers.commute_enricher import enrich_commute
         stats = enrich_commute(db_path, force=args.commute_force)

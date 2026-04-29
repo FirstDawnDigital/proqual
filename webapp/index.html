@@ -99,6 +99,8 @@
     .fg-laantype { width: 128px; }
     .fg-minn     { width: 148px; }
     .fg-unreg    { width: 142px; }
+    .fg-maxsqm   { width:  90px; }
+    .fg-maxlejekr { width: 118px; }
 
     /* Linje 3: Nulstil + Vis alle + view-chips + tæller */
     .filter-bar {
@@ -929,6 +931,14 @@
               <option value="1">Kun uregulerede</option>
             </select>
           </div>
+          <div class="filter-group fg-maxsqm">
+            <label>Maks m² (leje)</label>
+            <input type="number" id="f-maxsqm" value="120" min="10" step="10">
+          </div>
+          <div class="filter-group fg-maxlejekr">
+            <label>Maks leje kr/m²/år</label>
+            <input type="number" id="f-maxlejekr" placeholder="1600" step="100" min="0">
+          </div>
         </div>
       </div>
     </div>
@@ -1464,9 +1474,27 @@
   }
 
   // Effektiv månedsleje: bruger manuel override → V2-model → m²-metode (fallback)
+  // Maks m² (leje): skalerer lejen ned hvis boligen er større end grænsen
+  //   → 150m² bolig med 15.000 kr leje og maks 120m² → 15.000 × 120/150 = 12.000 kr
+  // Maks leje kr/m²/år: lofter den (evt. skalerede) leje
+  // Manuelle overrides påvirkes ikke af disse filtre
   function effectiveLeje(p, ann) {
     if (ann.custom_leje && ann.custom_leje > 0) return ann.custom_leje;
-    return p.est_leje_v2 ?? p.est_leje_sqm;
+    const raw = p.est_leje_v2 ?? p.est_leje_sqm;
+    if (raw == null) return raw;
+    const maxSqm    = parseFloat(document.getElementById("f-maxsqm")?.value)    || 0;
+    const maxKrM2Aar = parseFloat(document.getElementById("f-maxlejekr")?.value) || 0;
+    // Skaler leje ned proportionalt hvis boligen overstiger maks m²
+    const effSize = (maxSqm > 0 && p.size_sqm > maxSqm) ? maxSqm : p.size_sqm;
+    const scaled  = (maxSqm > 0 && p.size_sqm > 0 && p.size_sqm > maxSqm)
+      ? raw * maxSqm / p.size_sqm
+      : raw;
+    // Loft baseret på kr/m²/år
+    if (maxKrM2Aar > 0 && effSize > 0) {
+      const cap = effSize * maxKrM2Aar / 12;
+      return Math.min(scaled, cap);
+    }
+    return scaled;
   }
 
   // HTML til lejevisning i tabel/kort
@@ -1524,7 +1552,8 @@
   // Beregn afkast baseret på valgt afkasttype
   function computeDisplayYield(type, leje, ejerudgift, ydelse, adjPrice, udbetaling, p) {
     if (type === "teoretisk") {
-      if (leje != null && adjPrice > 0) return Math.round(leje * 12 / adjPrice * 1000) / 10;
+      // Nettoleje (efter ejerudgifter) / totalpris
+      if (leje != null && adjPrice > 0) return Math.round((leje - ejerudgift) * 12 / adjPrice * 1000) / 10;
       return p.yield_v2_pct ?? p.yield_sqm_pct;
     }
     if (leje == null) return null;
@@ -1610,12 +1639,12 @@
   function buildYieldTooltip(p, ann, adjPrice, leje, ejerudgift, ydelse, udbetaling, yieldType, yieldPct) {
     const TYPE_LABEL = {
       finansieret: "💰 Finansieret afkast",
-      teoretisk:   "📊 Teoretisk afkast (brutto)",
+      teoretisk:   "📊 Teoretisk afkast (netto)",
       kontant:     "💵 Afkast på kontantindsats",
     };
     const TYPE_FORMULA = {
       finansieret: "Cashflow × 12 ÷ totalpris",
-      teoretisk:   "Est. leje × 12 ÷ totalpris",
+      teoretisk:   "(Est. leje − ejerudgift) × 12 ÷ totalpris",
       kontant:     "Cashflow × 12 ÷ udbetaling",
     };
     let html = `<div class="tooltip-title">${TYPE_LABEL[yieldType] || yieldType}</div>`;
@@ -1623,7 +1652,11 @@
     html += `<div class="tooltip-divider"></div>`;
 
     if (yieldType === "teoretisk") {
+      const nettoleje = leje != null ? leje - ejerudgift : null;
       html += `<div class="tooltip-row"><span>Est. leje/md</span><span>${fmtKr(leje)}</span></div>`;
+      html += `<div class="tooltip-row"><span>− Ejerudgift</span><span>${fmtKr(ejerudgift)}</span></div>`;
+      html += `<div class="tooltip-row"><span>= Nettoleje/md</span><span style="font-weight:600">${fmtKr(nettoleje != null ? Math.round(nettoleje) : null)}</span></div>`;
+      html += `<div class="tooltip-divider"></div>`;
       html += `<div class="tooltip-row"><span>Totalpris</span><span>${fmtKr(adjPrice)}</span></div>`;
     } else {
       const nettoleje = leje != null ? leje - ejerudgift : null;
@@ -1925,7 +1958,7 @@
       if (p.rooms!=null && p.rooms>maxRooms)                return false;
       const effN = p.est_leje_v2 != null ? (p.lejedata_v2_antal ?? 0) : (p.lejedata_antal ?? 0);
       if (minN>0 && effN<minN) return false;
-      if (energyAllowed && !isManual && !energyAllowed.has((p.energy_label||"").toUpperCase())) return false;
+      if (energyAllowed && !isManual && !energyAllowed.has((p.energy_label||"").charAt(0).toUpperCase())) return false;
       if (maxCommute > 0 && p.commute_minutes != null && p.commute_minutes > maxCommute) return false;
       return true;
     });
@@ -2065,7 +2098,7 @@
       const deleteBtn = "";
 
       // Energi
-      const eLabel = p.energy_label ? p.energy_label.toUpperCase() : null;
+      const eLabel = p.energy_label ? p.energy_label.charAt(0).toUpperCase() : null;
       const energyHtml = eLabel ? `<span class="energy e-${eLabel}">${eLabel}</span>` : "–";
 
       // Basis- og justeret pris (custom_price = forhandlet pris)
@@ -2338,7 +2371,7 @@
         : `<span style="font-weight:600;font-size:14px">${esc(street)}</span>`;
 
       // Energi
-      const eLabel    = p.energy_label ? p.energy_label.toUpperCase() : null;
+      const eLabel    = p.energy_label ? p.energy_label.charAt(0).toUpperCase() : null;
       const energyHtml = eLabel ? `<span class="energy e-${eLabel}">${eLabel}</span>` : "";
 
       // Type + størrelse + huslejeregler badge
@@ -2553,11 +2586,12 @@
   // ── Filter listeners ──────────────────────────────────
   ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-minn","f-energy","f-maxcommute","f-yieldtype","f-laantype","f-unreg"]
     .forEach(id => document.getElementById(id).addEventListener("change", () => { renderTable(); updateFilterBadge(); }));
-  ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-udbetaling"]
+  ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-udbetaling","f-maxsqm","f-maxlejekr"]
     .forEach(id => document.getElementById(id).addEventListener("input", () => { renderTable(); updateFilterBadge(); }));
 
   function doReset() {
-    ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms"].forEach(id => { document.getElementById(id).value=""; });
+    ["f-zip","f-maxprice","f-minyield","f-minrooms","f-maxrooms","f-maxlejekr"].forEach(id => { document.getElementById(id).value=""; });
+    document.getElementById("f-maxsqm").value="120";
     document.getElementById("f-minn").value="5";
     document.getElementById("f-energy").value="D";
     document.getElementById("f-maxcommute").value="45";
@@ -2733,6 +2767,9 @@
     if (mn && mn !== "5") n++;              // 5 er default, tæller ikke
     const mc = document.getElementById("f-maxcommute").value;
     if (mc && mc !== "45") n++;             // 45 er default, tæller ikke
+    const msqm = document.getElementById("f-maxsqm").value;
+    if (msqm && msqm !== "120") n++;        // 120 er default, tæller ikke
+    if (document.getElementById("f-maxlejekr").value) n++;
     return n;
   }
 
