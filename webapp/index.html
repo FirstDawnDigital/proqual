@@ -202,8 +202,8 @@
     td:nth-child(5), th:nth-child(5)   { padding-left: 22px; }  /* Energi: mere luft fra Liggetid */
     td:nth-child(6), th:nth-child(6)   { padding-left: 12px; }  /* Totalpris: lidt tættere på Energi */
     td:nth-child(7), th:nth-child(7)   { padding-left: 22px; }  /* Finansiering: mere luft fra Totalpris */
-    td:nth-child(8), th:nth-child(8)   { padding-left: 20px; }  /* Drift */
-    td:nth-child(9), th:nth-child(9)   { padding-left: 20px; }  /* Leje/md */
+    td:nth-child(8), th:nth-child(8)   { padding-left: 20px; }  /* Leje/md */
+    td:nth-child(9), th:nth-child(9)   { padding-left: 20px; }  /* Drift */
     td:nth-child(10), th:nth-child(10) { padding-left: 20px; }  /* Cashflow */
     tr:hover td { background: #f1f5f9; }
 
@@ -1064,8 +1064,8 @@
         <th data-col="energy_label" style="width:58px;text-align:center">Energi <span class="si"></span></th>
         <th data-col="price" class="num" style="width:130px">Totalpris <span class="si"></span></th>
         <th class="num" style="width:120px">Finansiering</th>
-        <th data-col="owner_costs_monthly" class="num" style="width:110px">Drift <span class="si"></span></th>
         <th data-col="est_leje_sqm" class="num" style="width:110px">Leje/md <span class="si"></span></th>
+        <th data-col="owner_costs_monthly" class="num" style="width:110px">Drift <span class="si"></span></th>
         <th data-col="cashflow_cf" class="num" style="width:120px">Cashflow <span class="si"></span><span class="cf-sort-chip" data-sort-opsp title="Sorteret efter cashflow — klik for samlet opsparing">💵</span></th>
         <th data-col="yield_v2_pct" class="num sort-desc" style="width:72px">Afkast% <span class="si"></span></th>
         <th data-col="commute_minutes" class="num" style="width:82px">Køretid <span class="si"></span></th>
@@ -2149,12 +2149,21 @@
         <div class="fin-sub">💵 ${fmt(udbetaling)}\u00a0kr</div>
       `;
 
-      // Drift: ejerudgift + ydelse (forudberegn cashflow til farvelægning)
+      // Drift: ejerudgift + ydelse + VSO skat
       const ejerudgift = p.owner_costs_monthly ?? 0;
-      const samlet     = ejerudgift + Math.round(ydelse);
       const lejeForDrift = effectiveLeje(p, ann);
+
+      // VSO skat: beregn brutto-renter (ydelse er efter 25,6% rentefradrag)
+      const vsoRenteNetto  = Math.max(0, ydelse - afdrag);
+      const vsoRenteBrutto = vsoRenteNetto / 0.744;
+      const vsoOvskud      = lejeForDrift != null ? lejeForDrift - ejerudgift - vsoRenteBrutto : null;
+      const vsoSkat        = vsoOvskud != null ? Math.max(0, Math.round(vsoOvskud * 0.22)) : null;
+      const vsoNetto       = vsoOvskud != null ? Math.round(vsoOvskud * 0.78) - Math.round(afdrag) : null;
+
+      const samlet     = ejerudgift + Math.round(ydelse);
       const cashflowForDrift = lejeForDrift != null ? lejeForDrift - ejerudgift - Math.round(ydelse) : null;
       const driftRisk  = cashflowForDrift != null && cashflowForDrift < 0;
+
       const driftHtml  = p.owner_costs_monthly != null
         ? `<div class="price-main${driftRisk ? '" style="color:var(--risk)' : ''}">${fmt(samlet)}\u00a0kr</div>` +
           `<div class="price-sub">${fmt(ejerudgift)}\u00a0kr ejerudg.</div>` +
@@ -2173,19 +2182,31 @@
           ? `<div class="netto-sub">${fmt(Math.round(nettoleje))}\u00a0kr netto</div>`
           : "");
 
-      // Cashflow-celle: farver skifter med aktivt sorteringsfokus
-      const isOpspFocus = sortCol === "opsparing";
-      // Cashflow-linje: grøn/rød ved CF-fokus, grå ved opsparing-fokus
-      const cfCls = cashflow != null
-        ? (isOpspFocus ? "cashflow-dim" : (cashflow >= 0 ? "cashflow-pos" : "cashflow-neg"))
+      // Cashflow-celle: netto cashflow (efter VSO skat) som primært tal, brutto som sub
+      const nettoDisplay = vsoNetto ?? cashflow;
+      const isOpspFocus  = sortCol === "opsparing";
+      const nettoCls = nettoDisplay != null
+        ? (nettoDisplay >= 0 ? "cashflow-pos" : "cashflow-neg")
         : "";
-      // Opsparing-linje: grøn/rød ved opsparing-fokus, grå ellers
       const opspStyle = isOpspFocus
         ? `style="color:${opsparing >= 0 ? "var(--green)" : "var(--risk)"};font-weight:700"` : "";
-      const cfHtml = cashflow != null
-        ? `<div class="${cfCls}">${fmt(Math.round(cashflow))}\u00a0kr cash</div>
-           <div class="price-sub">+ ${fmt(Math.round(afdrag))}\u00a0kr afdrag</div>
-           <div class="price-sub" ${opspStyle}>= ${fmt(Math.round(opsparing))}\u00a0opsp.</div>`
+      const nettoOpsp = nettoDisplay != null ? Math.round(nettoDisplay) + Math.round(afdrag) : null;
+      const nettoOpspStyle = isOpspFocus
+        ? `style="color:${nettoOpsp >= 0 ? "var(--green)" : "var(--risk)"};font-weight:700"` : "";
+      const cfHtml = nettoDisplay != null
+        ? `<div class="${nettoCls} cf-netto-cell" style="cursor:help"
+               data-cf-brutto="${cashflow != null ? Math.round(cashflow) : ""}"
+               data-cf-netto="${Math.round(nettoDisplay)}"
+               data-cf-skat="${vsoSkat ?? 0}"
+               data-cf-ovskud="${vsoOvskud != null ? Math.round(vsoOvskud) : ""}"
+               data-cf-rente="${Math.round(vsoRenteBrutto)}"
+               data-cf-rente-netto="${Math.round(vsoRenteNetto)}"
+               data-cf-ejerudgift="${ejerudgift}"
+               data-cf-leje="${lejeForDrift != null ? Math.round(lejeForDrift) : ""}"
+               data-cf-ydelse="${Math.round(ydelse)}"
+             >${fmt(Math.round(nettoDisplay))}\u00a0kr netto</div>` +
+          `<div class="price-sub">+ ${fmt(Math.round(afdrag))}\u00a0kr afdrag</div>` +
+          `<div class="price-sub" ${nettoOpspStyle}>= ${fmt(nettoOpsp)}\u00a0opsp.</div>`
         : "";
 
       // Afkast — baseret på valgt afkasttype
@@ -2228,8 +2249,8 @@
         <td style="text-align:center">${energyHtml}</td>
         <td class="num">${priceHtml}</td>
         <td class="num">${finHtml}</td>
-        <td class="num">${driftHtml}</td>
         <td class="num leje-cell">${_lejeHtml}</td>
+        <td class="num drift-cell" style="cursor:help">${driftHtml}</td>
         <td class="num">${cfHtml || '<span style="color:#cbd5e1">–</span>'}</td>
         <td class="num yield-cell ${yCls}" style="cursor:help">${yTxt}</td>
         <td class="num">${distHtml}</td>
@@ -2423,7 +2444,7 @@
 
       // Drift + cashflow til kort
       const cardUd       = getUdbetaling();
-      const { laan: cardLaan, ydelse: cardYdelse, ratio: cardRatio } = computeLoan(adjPrice, cardUd);
+      const { laan: cardLaan, ydelse: cardYdelse, ratio: cardRatio, afdrag: cardAfdrag } = computeLoan(adjPrice, cardUd);
       const cardEjerudgift = p.owner_costs_monthly ?? 0;
       const cardDriftSamlet = cardEjerudgift + Math.round(cardYdelse);
       const cardCashflow  = cardLeje != null ? cardLeje - cardEjerudgift - Math.round(cardYdelse) : null;
@@ -2502,6 +2523,53 @@
       container.appendChild(card);
     });
   }
+
+  document.getElementById("table-body").addEventListener("mouseout", e => {
+    if (e.target.closest(".cf-netto-cell")) tooltip.classList.remove("visible");
+  });
+
+  // Netto cashflow: mouseover viser fuld VSO-udregning
+  document.getElementById("table-body").addEventListener("mouseover", e => {
+    const el = e.target.closest(".cf-netto-cell");
+    if (!el) return;
+    const netto    = parseInt(el.dataset.cfNetto);
+    const brutto   = el.dataset.cfBrutto !== "" ? parseInt(el.dataset.cfBrutto) : null;
+    const skat     = parseInt(el.dataset.cfSkat);
+    const ovskud   = el.dataset.cfOvskud !== "" ? parseInt(el.dataset.cfOvskud) : null;
+    const rente    = parseInt(el.dataset.cfRente);
+    const renteN   = parseInt(el.dataset.cfRenteNetto);
+    const ejudg    = parseInt(el.dataset.cfEjerudgift);
+    const leje     = el.dataset.cfLeje !== "" ? parseInt(el.dataset.cfLeje) : null;
+    const ydelse   = el.dataset.cfYdelse !== undefined ? parseInt(el.dataset.cfYdelse) : null;
+    const nSign    = netto >= 0 ? "+" : "";
+    const nCol     = netto >= 0 ? "var(--green)" : "var(--risk)";
+    let html = `<div class="tooltip-title">💵 Netto cashflow — VSO (22%)</div>`;
+    html += `<div class="tooltip-divider"></div>`;
+    if (brutto != null) {
+      const bSign = brutto >= 0 ? "+" : "";
+      const bCol  = brutto >= 0 ? "var(--green)" : "var(--risk)";
+      html += `<div class="tooltip-row" style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px"><span>Brutto cashflow</span></div>`;
+      html += `<div class="tooltip-row"><span>Est. leje/md</span><span>${fmtKr(leje)}</span></div>`;
+      html += `<div class="tooltip-row"><span>− Ejerudgift</span><span>${fmtKr(ejudg)}</span></div>`;
+      html += `<div class="tooltip-row"><span>− Ydelse</span><span>${ydelse != null ? fmtKr(ydelse) : ""}</span></div>`;
+      html += `<div class="tooltip-row" style="font-weight:600"><span>= Brutto cashflow</span><span style="color:${bCol}">${bSign}${fmtKr(brutto)}</span></div>`;
+      html += `<div class="tooltip-divider"></div>`;
+    }
+    if (ovskud != null) {
+      html += `<div class="tooltip-row" style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px"><span>VSO skat (22%)</span></div>`;
+      html += `<div class="tooltip-row"><span>Est. leje/md</span><span>${fmtKr(leje)}</span></div>`;
+      html += `<div class="tooltip-row"><span>− Ejerudgift</span><span>${fmtKr(ejudg)}</span></div>`;
+      html += `<div class="tooltip-row"><span>− Renter brutto</span><span>${fmtKr(rente)}</span></div>`;
+      html += `<div class="tooltip-row" style="color:var(--muted);font-size:10px"><span>&nbsp;&nbsp;netto efter 25,6%: ${fmtKr(renteN)}</span><span></span></div>`;
+      html += `<div class="tooltip-row"><span>= Overskud (VSO)</span><span style="font-weight:600">${fmtKr(ovskud)}</span></div>`;
+      html += `<div class="tooltip-row"><span>− Skat 22%</span><span style="color:var(--risk)">${fmtKr(skat)}</span></div>`;
+      html += `<div class="tooltip-divider"></div>`;
+    }
+    html += `<div class="tooltip-row" style="font-weight:700"><span>= Netto cashflow</span><span style="color:${nCol}">${nSign}${fmtKr(netto)}</span></div>`;
+    tooltip.innerHTML = html;
+    tooltip.classList.add("visible");
+    positionTooltip(e);
+  });
 
   // ── Sort headers ──────────────────────────────────────
   // Dynamisk tooltip på type-ikon: viser manuelt satte attributter ved mouseover
