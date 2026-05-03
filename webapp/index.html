@@ -238,6 +238,9 @@
     .disq-reason { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 3px; }
     .disq-reason-edit { background: none; border: none; cursor: pointer; font-size: 10px; opacity: 0.5; padding: 0; line-height: 1; }
     .disq-reason-edit:hover { opacity: 1; }
+    .disq-preset { font-size: 11px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 12px;
+                   background: #f8f9fa; cursor: pointer; white-space: nowrap; }
+    .disq-preset:hover { background: #e9ecef; border-color: var(--blue); }
 
     /* ── Status-knap ── */
     /* Individuelle status-ikoner i listevisning */
@@ -1246,6 +1249,15 @@
 <div id="disq-popup">
   <label>Årsag til diskvalificering</label>
   <input id="disq-reason-input" type="text" maxlength="120" placeholder="F.eks. for stor, dårlig beliggenhed…">
+  <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+    <button class="disq-preset" data-reason="Solgt">✅ Solgt</button>
+    <button class="disq-preset" data-reason="Beliggenhed langt fra alt">📍 Langt fra alt</button>
+    <button class="disq-preset" data-reason="Beliggenhed med støj">🔊 Støj</button>
+    <button class="disq-preset" data-reason="Pris høj ift. udlejningspotentiale">💸 Pris/leje</button>
+    <button class="disq-preset" data-reason="Stråtag">🌾 Stråtag</button>
+    <button class="disq-preset" data-reason="Stort renoveringsprojekt">🔨 Stor reno.</button>
+    <button class="disq-preset" data-reason="Lejlighed i lille ejendom">🏚️ Lille ejendom</button>
+  </div>
   <div class="popup-actions">
     <button id="disq-popup-cancel">Annuller</button>
     <button id="disq-popup-ok" class="btn-ok">Gem</button>
@@ -1805,6 +1817,14 @@
 
   document.getElementById("disq-popup-cancel").addEventListener("click", closeDisqPopup);
 
+  // Preset-knapper i diskvalificerings-popup
+  document.querySelectorAll(".disq-preset").forEach(btn => {
+    btn.addEventListener("click", () => {
+      disqReasonInput.value = btn.dataset.reason;
+      saveDisqReason();  // gem med det samme
+    });
+  });
+
   function saveDisqReason() {
     if (_disqPendingId == null) return;
     const id = _disqPendingId;
@@ -1933,6 +1953,8 @@
 
       // Diskvalificerede on/off: 0=vis (dimmet), 1=kun vis
       if (disqState === 1 && ann.status !== "disqualified") return false;
+      // I Diskvalificerede-fanen bypasses økonomi-filtre — vis alle uanset afkast/pris/køretid
+      if (disqState === 1 && ann.status === "disqualified") return true;
 
       // Aktiv række og pinned bypasser øvrige filtre (medmindre trash-mode)
       if (p.id === activeRowId) return true;
@@ -2001,34 +2023,40 @@
         };
         av = drift(a); bv = drift(b);
       } else if (sortCol === "cashflow_cf") {
-        // Cashflow = leje − ejerudgift − ydelse
+        // Netto cashflow efter VSO skat (matcher det viste tal)
         const ud = getUdbetaling();
         const cf = p => {
-          const ann      = getAnnotation(p.id);
-          const leje     = effectiveLeje(p, ann);
+          const ann        = getAnnotation(p.id);
+          const leje       = effectiveLeje(p, ann);
           if (leje == null) return null;
-          const total    = (ann.renovation_items||[]).reduce((s,i)=>s+(parseFloat(i.cost)||0),0);
-          const base     = ann.custom_price ?? p.price;
-          const adjPrice = base + total;
-          const { ydelse } = computeLoan(adjPrice, ud);
+          const total      = (ann.renovation_items||[]).reduce((s,i)=>s+(parseFloat(i.cost)||0),0);
+          const base       = ann.custom_price ?? p.price;
+          const adjPrice   = base + total;
+          const { ydelse, afdrag } = computeLoan(adjPrice, ud);
           const ejerudgift = p.owner_costs_monthly ?? 0;
-          return leje - ejerudgift - ydelse;
+          const renteNetto  = Math.max(0, ydelse - afdrag);
+          const renteBrutto = renteNetto / 0.744;
+          const ovskud      = leje - ejerudgift - renteBrutto;
+          return Math.round(ovskud * 0.78) - Math.round(afdrag);
         };
         av = cf(a); bv = cf(b);
       } else if (sortCol === "opsparing") {
-        // Samlet opsparing = cashflow + afdrag
+        // Samlet opsparing = vsoNetto + afdrag (matcher det viste tal)
         const ud = getUdbetaling();
         const opsp = p => {
-          const ann      = getAnnotation(p.id);
-          const total    = (ann.renovation_items||[]).reduce((s,i)=>s+(parseFloat(i.cost)||0),0);
-          const base     = ann.custom_price ?? p.price;
-          const adjPrice = base + total;
-          const leje     = effectiveLeje(p, ann);
+          const ann        = getAnnotation(p.id);
+          const total      = (ann.renovation_items||[]).reduce((s,i)=>s+(parseFloat(i.cost)||0),0);
+          const base       = ann.custom_price ?? p.price;
+          const adjPrice   = base + total;
+          const leje       = effectiveLeje(p, ann);
           if (leje == null) return null;
           const { ydelse, afdrag } = computeLoan(adjPrice, ud);
-          const ejerudgift = p.owner_costs_monthly ?? 0;
-          const cashflow   = leje - ejerudgift - ydelse;
-          return cashflow + afdrag;
+          const ejerudgift  = p.owner_costs_monthly ?? 0;
+          const renteNetto  = Math.max(0, ydelse - afdrag);
+          const renteBrutto = renteNetto / 0.744;
+          const ovskud      = leje - ejerudgift - renteBrutto;
+          const vsoNetto    = Math.round(ovskud * 0.78) - Math.round(afdrag);
+          return vsoNetto + Math.round(afdrag);
         };
         av = opsp(a); bv = opsp(b);
       } else {
@@ -2186,7 +2214,7 @@
       const nettoDisplay = vsoNetto ?? cashflow;
       const isOpspFocus  = sortCol === "opsparing";
       const nettoCls = nettoDisplay != null
-        ? (nettoDisplay >= 0 ? "cashflow-pos" : "cashflow-neg")
+        ? (isOpspFocus ? "cashflow-dim" : (nettoDisplay >= 0 ? "cashflow-pos" : "cashflow-neg"))
         : "";
       const opspStyle = isOpspFocus
         ? `style="color:${opsparing >= 0 ? "var(--green)" : "var(--risk)"};font-weight:700"` : "";
