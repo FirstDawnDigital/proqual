@@ -40,6 +40,7 @@ from database import (
     get_rental_summary,
     get_data_quality,
     mark_stale_listings_inactive,
+    mark_missing_sale_properties,
 )
 from email_parser.gmail_parser import fetch_and_parse_all
 
@@ -146,23 +147,54 @@ def run_salg_scraping(
         )
         return 0
 
-    max_p = max_pages or int(os.getenv('BOLIGSIDEN_MAX_PAGES', '20'))
     delay = delay_seconds if delay_seconds is not None else float(
         os.getenv('BOLIGSIDEN_DELAY_SECONDS', '3.0')
     )
 
+    # Hent eller opret scrape-state (til auto-skalering af max_pages)
+    import json
+    state_path = os.path.join(os.path.dirname(db_path), 'scrape_state.json')
+    try:
+        scrape_state = json.loads(Path(state_path).read_text()) if Path(state_path).exists() else {}
+    except Exception:
+        scrape_state = {}
+
+    # Brug eksplicit argument → state (auto-skaleret) → env → default
+    max_p = max_pages or scrape_state.get('boligsiden_max_pages') or int(os.getenv('BOLIGSIDEN_MAX_PAGES', '50'))
+
     try:
         from scrapers.boligsiden_scraper import scrape_listings
         console.print(f"[cyan]→ Scraper Boligsiden.dk (maks {max_p} sider)...[/cyan]")
-        listings = scrape_listings(url, max_pages=max_p, delay_seconds=delay)
+        listings, pages_used = scrape_listings(url, max_pages=max_p, delay_seconds=delay)
 
         new_count = 0
+        seen_ids = set()
         for prop in listings:
+            if prop.get('listing_id'):
+                seen_ids.add(prop['listing_id'])
             if insert_property_for_sale(db_path, prop):
                 new_count += 1
 
+        # Markér boliger ikke set i dette scrape
+        deactivated = mark_missing_sale_properties(db_path, seen_ids, source='boligsiden')
+        if deactivated:
+            console.print(f"[yellow]→ {deactivated} boliger markeret inaktive (ikke set i seneste 2 scrapes)[/yellow]")
+
+        # Auto-skalér max_pages: hvis vi ramte grænsen, øg med 10 til næste kørslen
+        if pages_used >= max_p:
+            new_max = max_p + 10
+            scrape_state['boligsiden_max_pages'] = new_max
+            console.print(f"[dim]→ Ramte sidelimit ({max_p}) – næste scrape bruger {new_max} sider[/dim]")
+        else:
+            scrape_state['boligsiden_max_pages'] = max_p
+
+        try:
+            Path(state_path).write_text(json.dumps(scrape_state, indent=2))
+        except Exception as e:
+            logger.warning(f"Kunne ikke gemme scrape_state: {e}")
+
         console.print(
-            f"[green]✓ Boligsiden: {len(listings)} boliger fundet, "
+            f"[green]✓ Boligsiden: {len(listings)} boliger fundet ({pages_used} sider), "
             f"{new_count} nye gemt[/green]"
         )
         return new_count
@@ -1153,8 +1185,10 @@ def main():
     elif args.enrich_commute:
         from enrichers.commute_enricher import enrich_commute
         stats = enrich_commute(db_path, force=args.commute_force)
-        print(f"✓ Køretid beregnet for {stats['routed']} boliger "
-              f"({stats['geocoded']} geocoded, {stats['failed']} fejlede)")
+        if "error" in stats:
+            print(f"✗ Fejl: {stats['error']}")
+        else:
+            print(f"✓ Køretid tilgængelig for {stats['with_commute']} boliger")
     elif args.schedule:
         cmd_schedule(db_path, args.interval_hours)
     else:
